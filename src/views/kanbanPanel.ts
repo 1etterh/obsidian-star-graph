@@ -1,7 +1,7 @@
 import { Component, moment } from 'obsidian';
 import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
 import { DATE_FORMAT } from '../core/dailyNotes';
-import { sortTasks } from '../core/sort';
+import { createdKey, sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { SortOrder, Task } from '../types';
 import { assignProject } from './assignProjectModal';
@@ -12,11 +12,10 @@ const COLUMNS: BoardColumn[] = ['todo', 'today', 'done'];
 // Done tasks pile up over time; only the most recently completed are shown
 const DONE_LIMIT = 30;
 
-/** Most recently completed first; tasks without a done date go last */
+/** Most recently completed first; without a ✅ date the created date stands in */
 function sortDone(tasks: Task[]): Task[] {
-	return sortTasks(tasks, 'newest').sort((a, b) =>
-		(b.completed ?? '').localeCompare(a.completed ?? ''),
-	);
+	const key = (t: Task) => t.completed ?? createdKey(t);
+	return sortTasks(tasks, 'newest').sort((a, b) => key(b).localeCompare(key(a)));
 }
 
 interface ColumnEls {

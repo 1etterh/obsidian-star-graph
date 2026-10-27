@@ -3,7 +3,7 @@ import type { SortOrder, Task } from '../types';
 import { DATE_FORMAT } from './dailyNotes';
 
 /** Created marker, then daily note date, then file creation date */
-function createdKey(task: Task): string {
+export function createdKey(task: Task): string {
 	return (
 		task.created ??
 		task.dailyDate ??

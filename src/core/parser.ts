@@ -73,11 +73,14 @@ export function parseTaskLine(raw: string): ParsedLine | null {
 	};
 }
 
-/** Returns the line with the given status, adding the done date only when done */
+/**
+ * Returns the line with the given status. An existing done date is always removed;
+ * a new one is added only when `doneDate` is given and the task is done.
+ */
 export function setTaskStatus(
 	raw: string,
 	status: TaskStatus,
-	today: string,
+	doneDate?: string,
 ): string | null {
 	const match = TASK_RE.exec(raw);
 	if (!match) return null;
@@ -87,7 +90,7 @@ export function setTaskStatus(
 	const cleaned = body.replace(DONE_RE, '').trimEnd();
 	const block = BLOCK_ID_RE.exec(cleaned);
 	const text = block ? cleaned.slice(0, block.index) : cleaned;
-	const done = status === 'done' ? ` ${MARKERS.done} ${today}` : '';
+	const done = status === 'done' && doneDate ? ` ${MARKERS.done} ${doneDate}` : '';
 	return `${head}${STATUS_CHAR[status]}${mid}${text}${done}${block ? block[0] : ''}`;
 }
 

@@ -27,6 +27,7 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 | 3.5 | In progress 제거 → Todo / Today / Done 보드 | ✅ 완료 |
 | 4 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 5 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
+| 6 | Obsidian Bases 연동: 프로젝트 index.md에 진행 상황 속성 기록 | 예정 (확장 후보) |
 
 ### 1단계에 들어간 것
 
@@ -109,7 +110,7 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 ### 3.4단계에 들어간 것
 
 - 목적: 기록 보관. 방식: 볼트 안 월별 로그 `SyncDev/log/YYYY-MM.md`에 덧붙이기만 함
-  - 형식: `- 2026-10-27 14:32 · todo → in progress · [[노트#^sd-xxxx|task 내용]] (프로젝트)`
+  - 형식: 3.6에서 표로 변경
 - 감지: 노트가 다시 인덱싱될 때 이전/이후 task를 비교(`core/statusDiff.ts`). 블록 id로 먼저 짝짓고, 없으면 파일 안에서 내용이 유일하게 같은 task끼리. SyncDev 화면 변경과 노트에서 직접 체크한 변경을 같은 경로로 잡음. 내용이 같은 task가 여럿이면 기록하지 않음
 - SyncDev 화면에서 상태를 바꾸면 그 줄에 `^sd-` 블록 id를 함께 붙임. 노트에서 직접 바꾼 경우에는 편집 중인 줄을 건드리지 않으려고 붙이지 않음(로그는 노트 링크 + 내용)
 - 버그 수정: 블록 id가 있는 task를 완료하면 `✅ 날짜`가 블록 id 뒤에 붙어 블록 링크(캔버스 카드 → task)가 깨지던 문제. 블록 id를 항상 줄 끝에 유지
@@ -121,6 +122,20 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 - 이동(`TaskWriter.moveTo`, 한 번의 쓰기): Today로 → `⏳ 오늘`, Todo로 → `⏳` 제거, Done으로 → 체크(`⏳` 유지)
 - Dated 필터는 Todo 열에만 적용(Today·Done에서 예정일 있는 task가 사라지지 않게)
 - Roadmap 카드: open / done 개수, 미완료 task는 Today 먼저
+
+### 3.6단계에 들어간 것
+
+- 완료 시 `✅ 날짜`를 기본으로 붙이지 않음(설정 "Add done date", 기본 꺼짐). 기존 `✅`는 읽고, 다시 열면 제거. 완료 시점은 상태 로그에 남음
+  - 영향: ✅ 없는 완료 task는 Calendar에서 예정일/마감일/데일리 노트 날짜에 놓임. Done 열은 ✅가 없으면 생성일 기준으로 정렬
+- 상태 로그를 표로 기록: `| updatedAt | taskId | content | status | project |`. 파일 끝이 표가 아니면 헤더부터 새로 시작, 셀 안의 `|`는 `\|`로 이스케이프
+
+### 6단계 메모 (확장 후보)
+
+- Bases는 노트(파일)를 행으로, frontmatter 속성을 열로 다룸. 노트 안의 task 줄이나 상태 로그 표의 행은 검색 대상이 아님
+- 방안: 프로젝트 `index.md` frontmatter에 `syncdev-open`, `syncdev-done`, `syncdev-progress`, `syncdev-updated`를 플러그인이 갱신 → Bases로 프로젝트 진행 현황 표 구성
+- 주의: task가 바뀔 때마다 쓰지 말고 debounce해서 묶어 쓰기(동기화 충돌, 수정 이력 노이즈). 값이 같으면 쓰지 않기. `app.fileManager.processFrontMatter` 사용
+- 대안(비추천): task당 노트 1개. 참고: Bases 커스텀 뷰 API가 있으면 SyncDev 보드를 Bases 뷰로 제공하는 것도 검토
+- task 줄 단위 검색은 Dataview/Tasks 플러그인 쿼리로 가능(Tasks 표기 호환 유지)
 
 ### 3.2단계 메모 (보류)
 

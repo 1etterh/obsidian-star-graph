@@ -28,7 +28,7 @@ export class TaskWriter {
 		if (task.status === status) return;
 		// The block id lets the status log link to this exact task
 		await this.rewriteLine(task, (raw) => {
-			const next = setTaskStatus(raw, status, moment().format(DATE_FORMAT));
+			const next = setTaskStatus(raw, status, this.doneDate());
 			return next === null ? null : withBlockId(next, newBlockId());
 		});
 	}
@@ -42,12 +42,17 @@ export class TaskWriter {
 		if (columnOf(task, today) === column) return;
 		await this.rewriteLine(task, (raw) => {
 			const status: TaskStatus = column === 'done' ? 'done' : 'todo';
-			let next = setTaskStatus(raw, status, today);
+			let next = setTaskStatus(raw, status, this.doneDate());
 			if (next === null) return null;
 			if (column === 'today') next = setScheduled(next, today);
 			if (column === 'todo') next = setScheduled(next);
 			return status === task.status ? next : withBlockId(next, newBlockId());
 		});
+	}
+
+	/** Today's date when the ✅ done date is enabled in settings */
+	private doneDate(): string | undefined {
+		return this.getSettings().addDoneDate ? moment().format(DATE_FORMAT) : undefined;
 	}
 
 	/** Swaps the task's project tag: removes `#remove`, adds `#add` */

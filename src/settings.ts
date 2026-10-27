@@ -17,6 +17,7 @@ export interface SyncDevSettings {
 	dailyFolder: string;
 	dailyFormat: string;
 	addCreatedDate: boolean;
+	addDoneDate: boolean;
 }
 
 export const DEFAULT_PROJECT_ROOT = 'SyncDev/projects';
@@ -32,6 +33,7 @@ export const DEFAULT_SETTINGS: SyncDevSettings = {
 	dailyFolder: '',
 	dailyFormat: '',
 	addCreatedDate: true,
+	addDoneDate: false,
 };
 
 function parseFolders(value: string): string[] {
@@ -154,6 +156,16 @@ export class SyncDevSettingTab extends PluginSettingTab {
 			.addToggle((toggle) =>
 				toggle.setValue(settings.addCreatedDate).onChange(async (value) => {
 					settings.addCreatedDate = value;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName('Add done date')
+			.setDesc('Append ✅ with the date when a task is checked. Status changes are logged either way.')
+			.addToggle((toggle) =>
+				toggle.setValue(settings.addDoneDate).onChange(async (value) => {
+					settings.addDoneDate = value;
 					await this.plugin.saveSettings();
 				}),
 			);
