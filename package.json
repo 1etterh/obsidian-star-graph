@@ -1,7 +1,7 @@
 {
-	"name": "obsidian-sample-plugin",
-	"version": "1.0.0",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "syncdev",
+	"version": "0.1.0",
+	"description": "Collect tasks from daily notes into a sortable, folder-filtered backlog.",
 	"main": "main.js",
 	"type": "module",
 	"scripts": {
@@ -23,5 +23,11 @@
 		"obsidian": "latest",
 		"typescript": "^5.8.3",
 		"typescript-eslint": "^8.59.1"
+	},
+	"packageManager": "pnpm@10.23.0",
+	"pnpm": {
+		"onlyBuiltDependencies": [
+			"esbuild"
+		]
 	}
 }
