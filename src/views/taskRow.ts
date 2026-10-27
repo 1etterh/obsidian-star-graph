@@ -1,18 +1,15 @@
 import { App, Component, MarkdownRenderer, Menu, moment } from 'obsidian';
 import { DATE_FORMAT } from '../core/dailyNotes';
 import { stripTag } from '../core/parser';
-import type { Project, Task, TaskStatus } from '../types';
-
-export const STATUS_LABELS: Record<TaskStatus, string> = {
-	todo: 'Todo',
-	doing: 'In progress',
-	done: 'Done',
-};
+import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
+import type { Project, Task } from '../types';
 
 export interface TaskRowHandlers {
 	toggle(task: Task): void;
-	move(task: Task, status: TaskStatus): void;
+	move(task: Task, column: BoardColumn): void;
 	open(task: Task): void;
+	/** Shows "Assign to project…" in the menu when given */
+	assign?(task: Task): void;
 	/** Rows are draggable only when these are given */
 	dragStart?(task: Task): void;
 	dragEnd?(): void;
@@ -63,12 +60,22 @@ export async function renderTaskRow(
 	row.addEventListener('contextmenu', (evt) => {
 		evt.preventDefault();
 		const menu = new Menu();
-		for (const status of Object.keys(STATUS_LABELS) as TaskStatus[]) {
-			if (status === task.status) continue;
+		const current = columnOf(task, moment().format(DATE_FORMAT));
+		for (const column of Object.keys(COLUMN_LABELS) as BoardColumn[]) {
+			if (column === current) continue;
 			menu.addItem((item) =>
 				item
-					.setTitle(`Move to ${STATUS_LABELS[status].toLowerCase()}`)
-					.onClick(() => handlers.move(task, status)),
+					.setTitle(`Move to ${COLUMN_LABELS[column].toLowerCase()}`)
+					.onClick(() => handlers.move(task, column)),
+			);
+		}
+		if (handlers.assign) {
+			menu.addSeparator();
+			menu.addItem((item) =>
+				item
+					.setTitle('Assign to project…')
+					.setIcon('folder-input')
+					.onClick(() => handlers.assign?.(task)),
 			);
 		}
 		menu.showAtMouseEvent(evt);

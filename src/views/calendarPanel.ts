@@ -3,6 +3,8 @@ import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from '../core/d
 import { sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { Task } from '../types';
+import { assignProject } from './assignProjectModal';
+import { createTaskComposer } from './taskComposer';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
 // Six weeks always fit any month and keep the grid height stable
@@ -158,14 +160,8 @@ export class CalendarPanel extends Component {
 			() => void this.openDailyNote(moment(this.selected, DATE_FORMAT)),
 		);
 
-		// Kept across renders so focus survives the re-render after adding
-		this.addInput = panel.createEl('input', { type: 'text', cls: 'syncdev-add' });
-		this.addInput.addEventListener('keydown', (evt) => {
-			// Skip Enter while an IME (e.g. Korean) is still composing
-			if (evt.key !== 'Enter' || evt.isComposing) return;
-			const text = this.addInput.value.trim();
-			if (!text) return;
-			this.addInput.value = '';
+		// Outside the re-rendered list, so focus survives the render after adding
+		this.addInput = createTaskComposer(header, panel, 'Add a task', (text) => {
 			void this.plugin.writer.addToDaily(text, moment(this.selected, DATE_FORMAT));
 		});
 
@@ -231,7 +227,8 @@ export class CalendarPanel extends Component {
 
 	private rowHandlers: TaskRowHandlers = {
 		toggle: (task) => void this.plugin.writer.toggle(task),
-		move: (task, status) => void this.plugin.writer.setStatus(task, status),
+		move: (task, column) => void this.plugin.writer.moveTo(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
+		assign: (task) => assignProject(this.plugin, task),
 	};
 }

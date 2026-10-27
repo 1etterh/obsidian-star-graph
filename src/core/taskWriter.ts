@@ -1,8 +1,17 @@
 import { App, moment, Notice, TFile } from 'obsidian';
 import type { SyncDevSettings } from '../settings';
 import type { Task, TaskStatus } from '../types';
+import { BoardColumn, columnOf } from './board';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
-import { MARKERS, replaceTag, setTaskStatus } from './parser';
+import { newBlockId } from './blockId';
+import {
+	MARKERS,
+	replaceTag,
+	setLineTag,
+	setScheduled,
+	setTaskStatus,
+	withBlockId,
+} from './parser';
 
 export class TaskWriter {
 	constructor(
@@ -17,6 +26,36 @@ export class TaskWriter {
 
 	async setStatus(task: Task, status: TaskStatus): Promise<void> {
 		if (task.status === status) return;
+		// The block id lets the status log link to this exact task
+		await this.rewriteLine(task, (raw) => {
+			const next = setTaskStatus(raw, status, moment().format(DATE_FORMAT));
+			return next === null ? null : withBlockId(next, newBlockId());
+		});
+	}
+
+	/**
+	 * Today: open and ⏳ today. Todo: open, ⏳ removed. Done: checked, ⏳ kept.
+	 * One write, so the status log sees a single change.
+	 */
+	async moveTo(task: Task, column: BoardColumn): Promise<void> {
+		const today = moment().format(DATE_FORMAT);
+		if (columnOf(task, today) === column) return;
+		await this.rewriteLine(task, (raw) => {
+			const status: TaskStatus = column === 'done' ? 'done' : 'todo';
+			let next = setTaskStatus(raw, status, today);
+			if (next === null) return null;
+			if (column === 'today') next = setScheduled(next, today);
+			if (column === 'todo') next = setScheduled(next);
+			return status === task.status ? next : withBlockId(next, newBlockId());
+		});
+	}
+
+	/** Swaps the task's project tag: removes `#remove`, adds `#add` */
+	async setProjectTag(task: Task, remove?: string, add?: string): Promise<void> {
+		await this.rewriteLine(task, (raw) => setLineTag(raw, remove, add));
+	}
+
+	private async rewriteLine(task: Task, change: (raw: string) => string | null): Promise<void> {
 		const file = this.app.vault.getFileByPath(task.path);
 		if (!file) return;
 		let stale = false;
@@ -27,11 +66,7 @@ export class TaskWriter {
 				stale = true;
 				return data;
 			}
-			const next = setTaskStatus(
-				task.raw,
-				status,
-				moment().format(DATE_FORMAT),
-			);
+			const next = change(task.raw);
 			if (next === null) return data;
 			lines[task.line] = next;
 			return lines.join('\n');

@@ -1,10 +1,14 @@
-import { Component } from 'obsidian';
+import { Component, moment } from 'obsidian';
+import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
+import { DATE_FORMAT } from '../core/dailyNotes';
 import { sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
-import type { SortOrder, Task, TaskStatus } from '../types';
-import { openTask, renderTaskRow, STATUS_LABELS, TaskRowHandlers } from './taskRow';
+import type { SortOrder, Task } from '../types';
+import { assignProject } from './assignProjectModal';
+import { createTaskComposer } from './taskComposer';
+import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
-const COLUMNS: TaskStatus[] = ['todo', 'doing', 'done'];
+const COLUMNS: BoardColumn[] = ['todo', 'today', 'done'];
 // Done tasks pile up over time; only the most recently completed are shown
 const DONE_LIMIT = 30;
 
@@ -15,9 +19,17 @@ function sortDone(tasks: Task[]): Task[] {
 	);
 }
 
-/** Todo / In progress / Done board, shown in the Kanban tab */
+interface ColumnEls {
+	column: HTMLElement;
+	count: HTMLElement;
+	list: HTMLElement;
+}
+
+/** Todo / Today / Done board, shown in the Kanban tab */
 export class KanbanPanel extends Component {
 	private boardEl!: HTMLElement;
+	/** Columns are built once; renders only swap their lists, so the add input survives */
+	private columns = new Map<BoardColumn, ColumnEls>();
 	private sort: SortOrder;
 	private includeDated = false;
 	private renderToken = 0;
@@ -35,9 +47,9 @@ export class KanbanPanel extends Component {
 
 	onload(): void {
 		const root = this.containerEl.createDiv({ cls: 'syncdev-kanban' });
-		this.renderAddInput(root);
 		this.renderToolbar(root);
 		this.boardEl = root.createDiv({ cls: 'syncdev-board' });
+		for (const status of COLUMNS) this.createColumn(status);
 
 		this.registerEvent(
 			this.plugin.index.on('updated', () => void this.renderBoard()),
@@ -46,22 +58,6 @@ export class KanbanPanel extends Component {
 			this.plugin.projects.on('changed', () => void this.renderBoard()),
 		);
 		void this.renderBoard();
-	}
-
-	private renderAddInput(root: HTMLElement): void {
-		const input = root.createEl('input', {
-			type: 'text',
-			cls: 'syncdev-add',
-			placeholder: 'Add a task to today…',
-		});
-		input.addEventListener('keydown', (evt) => {
-			// Skip Enter while an IME (e.g. Korean) is still composing
-			if (evt.key !== 'Enter' || evt.isComposing) return;
-			const text = input.value.trim();
-			if (!text) return;
-			input.value = '';
-			void this.plugin.writer.addToDaily(text);
-		});
 	}
 
 	private renderToolbar(root: HTMLElement): void {
@@ -103,16 +99,21 @@ export class KanbanPanel extends Component {
 		});
 	}
 
-	private groupTasks(): Record<TaskStatus, Task[]> {
-		const groups: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
+	private groupTasks(): Record<BoardColumn, Task[]> {
+		const today = moment().format(DATE_FORMAT);
+		const groups: Record<BoardColumn, Task[]> = { todo: [], today: [], done: [] };
 		for (const task of this.plugin.index.all()) {
-			if (!this.includeDated && (task.scheduled || task.due)) continue;
 			if (!this.plugin.projects.isVisible(task)) continue;
-			groups[task.status].push(task);
+			const column = columnOf(task, today);
+			// The Dated filter keeps planned work out of Todo; Today and Done always show
+			if (column === 'todo' && !this.includeDated && (task.scheduled || task.due)) {
+				continue;
+			}
+			groups[column].push(task);
 		}
 		return {
 			todo: sortTasks(groups.todo, this.sort),
-			doing: sortTasks(groups.doing, this.sort),
+			today: sortTasks(groups.today, this.sort),
 			done: sortDone(groups.done),
 		};
 	}
@@ -122,15 +123,14 @@ export class KanbanPanel extends Component {
 		const token = ++this.renderToken;
 		const component = this.addChild(new Component());
 		const groups = this.groupTasks();
-		const board = createDiv({ cls: 'syncdev-board' });
+		const { showDone } = this.plugin.settings;
+		const lists = new Map<BoardColumn, HTMLElement>();
 
-		const columns = this.plugin.settings.showDone
-			? COLUMNS
-			: COLUMNS.filter((s) => s !== 'done');
-		for (const status of columns) {
+		for (const status of COLUMNS) {
+			if (status === 'done' && !showDone) continue;
 			const tasks = groups[status];
 			const shown = status === 'done' ? tasks.slice(0, DONE_LIMIT) : tasks;
-			const list = this.renderColumn(board, status, tasks.length);
+			const list = createDiv({ cls: 'syncdev-list' });
 			if (shown.length === 0) {
 				list.createDiv({ cls: 'syncdev-empty', text: 'No tasks' });
 			}
@@ -148,28 +148,39 @@ export class KanbanPanel extends Component {
 					return;
 				}
 			}
+			lists.set(status, list);
 		}
 
-		this.boardEl.replaceWith(board);
-		this.boardEl = board;
+		for (const [status, els] of this.columns) {
+			els.column.toggle(status !== 'done' || showDone);
+			els.count.setText(String(groups[status].length));
+			const list = lists.get(status);
+			if (list) {
+				els.list.replaceWith(list);
+				els.list = list;
+			}
+		}
 		if (this.boardComponent) this.removeChild(this.boardComponent);
 		this.boardComponent = component;
 	}
 
-	/** Creates a column that accepts dropped tasks and returns its list element */
-	private renderColumn(
-		board: HTMLElement,
-		status: TaskStatus,
-		count: number,
-	): HTMLElement {
-		const column = board.createDiv({ cls: 'syncdev-column' });
+	/** Builds a column that accepts dropped tasks; Todo also gets the add button */
+	private createColumn(status: BoardColumn): void {
+		const column = this.boardEl.createDiv({ cls: 'syncdev-column' });
 		column.dataset.status = status;
 		const header = column.createDiv({ cls: 'syncdev-column-header' });
-		header.createSpan({ text: STATUS_LABELS[status] });
-		header.createSpan({ cls: 'syncdev-count', text: String(count) });
+		header.createSpan({ text: COLUMN_LABELS[status] });
+		const count = header.createSpan({ cls: 'syncdev-count' });
+
+		if (status === 'todo') {
+			createTaskComposer(header, column, 'Add a task to today', (text) => {
+				void this.plugin.writer.addToDaily(text);
+			});
+		}
 
 		column.addEventListener('dragover', (evt) => {
-			if (!this.dragged || this.dragged.status === status) return;
+			const today = moment().format(DATE_FORMAT);
+			if (!this.dragged || columnOf(this.dragged, today) === status) return;
 			evt.preventDefault();
 			if (evt.dataTransfer) evt.dataTransfer.dropEffect = 'move';
 			column.addClass('is-drop-target');
@@ -185,16 +196,18 @@ export class KanbanPanel extends Component {
 			column.removeClass('is-drop-target');
 			const task = this.dragged;
 			this.dragged = null;
-			if (task) void this.plugin.writer.setStatus(task, status);
+			if (task) void this.plugin.writer.moveTo(task, status);
 		});
 
-		return column.createDiv({ cls: 'syncdev-list' });
+		const list = column.createDiv({ cls: 'syncdev-list' });
+		this.columns.set(status, { column, count, list });
 	}
 
 	private rowHandlers: TaskRowHandlers = {
 		toggle: (task) => void this.plugin.writer.toggle(task),
-		move: (task, status) => void this.plugin.writer.setStatus(task, status),
+		move: (task, column) => void this.plugin.writer.moveTo(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
+		assign: (task) => assignProject(this.plugin, task),
 		dragStart: (task) => {
 			this.dragged = task;
 		},

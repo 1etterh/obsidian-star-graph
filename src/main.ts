@@ -1,5 +1,6 @@
 import { debounce, MarkdownView, Plugin, TFile } from 'obsidian';
 import { PROJECT_LIST_BLOCK, ProjectRegistry } from './core/projects';
+import { StatusLog } from './core/statusLog';
 import { StormingService } from './core/storming/service';
 import { TaskIndex } from './core/taskIndex';
 import { registerIcons, SYNCDEV_ICON } from './icon';
@@ -17,6 +18,7 @@ export default class SyncDevPlugin extends Plugin {
 	writer!: TaskWriter;
 	projects!: ProjectRegistry;
 	storming!: StormingService;
+	statusLog!: StatusLog;
 
 	// Folder settings change the index scope, so rebuild once typing settles
 	private rebuildSoon = debounce(() => void this.index.rebuild(), 500, true);
@@ -27,6 +29,7 @@ export default class SyncDevPlugin extends Plugin {
 		this.writer = new TaskWriter(this.app, () => this.settings);
 		this.projects = new ProjectRegistry(this.app, () => this.settings);
 		this.storming = new StormingService(this.app, this.projects, this.writer);
+		this.statusLog = new StatusLog(this.app, this.projects);
 
 		registerIcons();
 		this.registerMarkdownCodeBlockProcessor(PROJECT_LIST_BLOCK, (_source, el, ctx) => {
@@ -83,6 +86,9 @@ export default class SyncDevPlugin extends Plugin {
 			this.projects.refresh();
 			registerProjectEvents(this);
 			registerStormingEvents(this);
+			this.registerEvent(
+				this.index.onStatusChanged((changes) => void this.statusLog.record(changes)),
+			);
 			this.registerEvent(
 				this.app.metadataCache.on('changed', (file, data, cache) =>
 					this.index.onChanged(file, data, cache),

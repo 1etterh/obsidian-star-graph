@@ -152,6 +152,17 @@
 	font-weight: normal;
 }
 
+.syncdev-column-add {
+	margin-left: auto;
+	padding: var(--size-2-1);
+}
+
+.syncdev-composer {
+	flex-shrink: 0;
+	box-sizing: border-box;
+	font-size: var(--font-ui-small);
+}
+
 .syncdev-toggle {
 	display: flex;
 	align-items: center;
@@ -333,8 +344,16 @@
 
 .syncdev-day-header {
 	display: flex;
-	align-items: baseline;
-	justify-content: space-between;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.syncdev-day-header .syncdev-source {
+	margin-left: auto;
+}
+
+.syncdev-day-header .syncdev-column-add {
+	margin-left: 0;
 }
 
 .syncdev-day-header h3 {

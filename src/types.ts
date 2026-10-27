@@ -1,6 +1,7 @@
 export type SortOrder = 'newest' | 'oldest';
 
-export type TaskStatus = 'todo' | 'doing' | 'done';
+/** Checkbox state; plain markdown has only these two */
+export type TaskStatus = 'todo' | 'done';
 
 export interface Task {
 	path: string;
@@ -18,6 +19,8 @@ export interface Task {
 	completed?: string;
 	/** Tags on the line, without '#' */
 	tags: string[];
+	/** Trailing ^block id, used as a stable identity */
+	blockId?: string;
 	/** Date of the daily note this task lives in, if any */
 	dailyDate?: string;
 	/** Fallback sort key: file creation time (ms) */

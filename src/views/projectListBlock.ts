@@ -71,7 +71,7 @@ export class ProjectListBlock extends MarkdownRenderChild {
 			.setCssProps({ '--syncdev-progress': `${stats.percent}%` });
 
 		const meta = row.createSpan({ cls: 'syncdev-task-meta' });
-		meta.setText(`${stats.percent}% · ${stats.todo + stats.doing} open`);
+		meta.setText(`${stats.percent}% · ${stats.open} open`);
 		for (const file of storming.canvasesOf(project)) {
 			const link = meta.createEl('a', { cls: 'syncdev-source', text: file.basename });
 			link.addEventListener('click', () => void app.workspace.getLeaf('tab').openFile(file));

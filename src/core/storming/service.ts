@@ -3,7 +3,8 @@ import type { ProjectRegistry } from '../projects';
 import type { TaskWriter } from '../taskWriter';
 import type { Project } from '../../types';
 import { appendToCards, canvasTemplate, parseCanvas } from './canvasAdapter';
-import { cardHasTask, cardTitle, StormBoard, TASK_BLOCK_PREFIX } from './model';
+import { newBlockId } from '../blockId';
+import { cardHasTask, cardTitle, StormBoard } from './model';
 
 export const STORMING_FILE = 'event-storming.canvas';
 
@@ -20,10 +21,6 @@ interface CanvasLike {
 interface CanvasViewLike {
 	file?: TFile;
 	canvas?: CanvasLike;
-}
-
-function newBlockId(): string {
-	return TASK_BLOCK_PREFIX + Math.random().toString(36).slice(2, 8);
 }
 
 /**

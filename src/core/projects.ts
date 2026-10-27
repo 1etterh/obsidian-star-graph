@@ -76,9 +76,13 @@ export class ProjectRegistry extends Events {
 		return this.list().find((p) => p.tag.toLowerCase() === lower);
 	}
 
+	/** The project whose folder holds the note, regardless of tags */
+	folderProjectOf(path: string): Project | undefined {
+		return this.list().find((p) => path.startsWith(`${p.folder}/`));
+	}
+
 	projectOf(task: Task): Project | undefined {
-		const projects = this.list();
-		const inFolder = projects.find((p) => task.path.startsWith(`${p.folder}/`));
+		const inFolder = this.folderProjectOf(task.path);
 		if (inFolder) return inFolder;
 		for (const tag of task.tags) {
 			const project = this.byTag(tag);

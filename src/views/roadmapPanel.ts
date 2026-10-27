@@ -1,10 +1,13 @@
-import { Component, setIcon } from 'obsidian';
+import { Component, moment, setIcon } from 'obsidian';
+import { columnOf } from '../core/board';
+import { DATE_FORMAT } from '../core/dailyNotes';
 import { groupByProject, statsOf } from '../core/projectStats';
 import { sortTasks } from '../core/sort';
 import { countKinds } from '../core/storming/model';
 import type SyncDevPlugin from '../main';
 import type { Project, Task } from '../types';
 import { showProjectMenu } from './projectMenu';
+import { assignProject } from './assignProjectModal';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
 /** One card per visible project: progress and its open tasks */
@@ -84,7 +87,7 @@ export class RoadmapPanel extends Component {
 		card.addEventListener('contextmenu', (evt) => showProjectMenu(evt, this.plugin, project));
 		card.setCssProps({ '--syncdev-project-color': `var(${project.color})` });
 
-		const { todo, doing, done, percent } = statsOf(tasks);
+		const stats = statsOf(tasks);
 
 		const header = card.createDiv({ cls: 'syncdev-project-header' });
 		header.createSpan({ cls: 'syncdev-project-dot' });
@@ -100,18 +103,20 @@ export class RoadmapPanel extends Component {
 		const progress = card.createDiv({ cls: 'syncdev-progress' });
 		progress
 			.createDiv({ cls: 'syncdev-progress-bar' })
-			.setCssProps({ '--syncdev-progress': `${percent}%` });
+			.setCssProps({ '--syncdev-progress': `${stats.percent}%` });
 		card.createDiv({
 			cls: 'syncdev-task-meta',
-			text: `${percent}% · ${todo} todo · ${doing} in progress · ${done} done`,
+			text: `${stats.percent}% · ${stats.open} open · ${stats.done} done`,
 		});
 
 		await this.renderStorming(card, project);
 
-		// In progress first, then todo
+		// Today first, then the rest of the open tasks
+		const today = moment().format(DATE_FORMAT);
+		const pending = tasks.filter((t) => t.status === 'todo');
 		const open = [
-			...sortTasks(tasks.filter((t) => t.status === 'doing'), 'oldest'),
-			...sortTasks(tasks.filter((t) => t.status === 'todo'), 'oldest'),
+			...sortTasks(pending.filter((t) => columnOf(t, today) === 'today'), 'oldest'),
+			...sortTasks(pending.filter((t) => columnOf(t, today) === 'todo'), 'oldest'),
 		];
 		const list = card.createDiv({ cls: 'syncdev-list' });
 		for (const task of open) {
@@ -171,7 +176,8 @@ export class RoadmapPanel extends Component {
 
 	private rowHandlers: TaskRowHandlers = {
 		toggle: (task) => void this.plugin.writer.toggle(task),
-		move: (task, status) => void this.plugin.writer.setStatus(task, status),
+		move: (task, column) => void this.plugin.writer.moveTo(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
+		assign: (task) => assignProject(this.plugin, task),
 	};
 }

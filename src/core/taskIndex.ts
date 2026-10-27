@@ -2,6 +2,7 @@ import {
 	App,
 	CachedMetadata,
 	debounce,
+	EventRef,
 	Events,
 	TAbstractFile,
 	TFile,
@@ -10,6 +11,7 @@ import type { SyncDevSettings } from '../settings';
 import type { Task } from '../types';
 import { dailyDateOf, getDailyNoteConfig } from './dailyNotes';
 import { parseTaskLine } from './parser';
+import { StatusChange, statusChanges } from './statusDiff';
 
 function inFolder(path: string, folder: string): boolean {
 	const f = folder.replace(/\/+$/, '');
@@ -29,6 +31,11 @@ export class TaskIndex extends Events {
 		private getSettings: () => SyncDevSettings,
 	) {
 		super();
+	}
+
+	/** Typed subscription to 'status-changed' */
+	onStatusChanged(callback: (changes: StatusChange[]) => void): EventRef {
+		return this.on('status-changed', (changes) => callback(changes as StatusChange[]));
 	}
 
 	all(): Task[] {
@@ -102,7 +109,13 @@ export class TaskIndex extends Events {
 			});
 		}
 
+		const before = this.tasks.get(file.path);
 		if (tasks.length > 0) this.tasks.set(file.path, tasks);
 		else this.tasks.delete(file.path);
+		// Only re-indexes compare; a rebuild starts empty and reports nothing
+		if (before) {
+			const changes = statusChanges(before, tasks);
+			if (changes.length > 0) this.trigger('status-changed', changes);
+		}
 	}
 }

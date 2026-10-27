@@ -2,8 +2,7 @@ import type { Task } from '../types';
 import type { ProjectRegistry } from './projects';
 
 export interface ProjectStats {
-	todo: number;
-	doing: number;
+	open: number;
 	done: number;
 	/** Share of done tasks, 0–100 */
 	percent: number;
@@ -11,9 +10,8 @@ export interface ProjectStats {
 
 export function statsOf(tasks: Task[]): ProjectStats {
 	const done = tasks.filter((t) => t.status === 'done').length;
-	const doing = tasks.filter((t) => t.status === 'doing').length;
 	const percent = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * 100);
-	return { todo: tasks.length - done - doing, doing, done, percent };
+	return { open: tasks.length - done, done, percent };
 }
 
 /** Tasks keyed by project name; tasks without a project are left out */

@@ -1,3 +1,5 @@
+import { BLOCK_PREFIX } from '../blockId';
+
 /**
  * Event storming board, independent of the drawing tool it was read from.
  * Adapters (e.g. canvasAdapter) turn a file into a StormBoard.
@@ -44,10 +46,8 @@ export const KINDS: { kind: Exclude<CardKind, 'other'>; label: string; hint: str
 /** Group label whose cards are a color legend, not part of the model */
 export const LEGEND_LABEL = 'Legend';
 
-/** Prefix of block ids created from cards, so a card's task link can be recognised */
-export const TASK_BLOCK_PREFIX = 'sd-';
-
-const TASK_LINK_RE = new RegExp(`#\\^${TASK_BLOCK_PREFIX}[a-z0-9]+`, 'i');
+// A card links to the task created from it by the task's SyncDev block id
+const TASK_LINK_RE = new RegExp(`#\\^${BLOCK_PREFIX}[a-z0-9]+`, 'i');
 
 export function cardHasTask(text: string): boolean {
 	return TASK_LINK_RE.test(text);

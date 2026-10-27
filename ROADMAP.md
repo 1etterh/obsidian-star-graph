@@ -15,13 +15,16 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 |---|---|---|
 | 1 | parser, TaskIndex, TaskWriter, Backlog 뷰 | ✅ 완료 |
 | 1.1 | Backlog를 메인 영역 전용 탭으로 열기 | ✅ 완료 |
-| 1.2 | Backlog를 Todo / In progress / Done 보드로, 드래그로 상태 변경 | ✅ 완료 |
+| 1.2 | Backlog를 Todo / In progress / Done 보드로, 드래그로 상태 변경 (3.5에서 Todo / Today / Done으로 변경) | ✅ 완료 |
 | 2 | Calendar 뷰 (월간 그리드, 날짜별 task 개수, 날짜 클릭 시 그날 task) | ✅ 완료 |
 | 2.1 | 하나의 SyncDev 뷰에 Kanban / Calendar / Roadmap 탭 | ✅ 완료 |
 | 2.2 | 프로젝트(폴더 + 태그), 공용 프로젝트 필터, Roadmap 탭 | ✅ 완료 |
 | 3 | 이벤트 스토밍(Canvas) 연동: 템플릿, 카드 분류·집계, 카드 → task | ✅ 완료 |
 | 3.1 | 프로젝트 허브(`SyncDev/index.md`)와 공용 프로젝트 메뉴 | ✅ 완료 |
 | 3.2 | 프로젝트 메뉴에 이름 변경·삭제 추가 | 보류 (구체화할 때 구현) |
+| 3.3 | task 우클릭 "Assign to project…" (백로그 → 프로젝트) | ✅ 완료 |
+| 3.4 | task 상태 변경 기록(월별 로그 파일) | ✅ 완료 |
+| 3.5 | In progress 제거 → Todo / Today / Done 보드 | ✅ 완료 |
 | 4 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 5 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
 
@@ -93,6 +96,31 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 - 메뉴 진입점 3곳: 파일 탐색기 프로젝트 폴더 우클릭(`file-menu`, 공개 API), 허브 목록 행 우클릭, Roadmap 카드 우클릭
 - task 출처와 데일리 노트 열기는 새 탭에서 (SyncDev 탭 유지)
 - 진행률 계산을 `core/projectStats.ts`로 공유
+
+### 3.3단계에 들어간 것
+
+- 프로젝트 없이 단순 백로그로도 사용 가능(태그 없는 task = No project). 논의한 "프로젝트 0개일 때 UI 자동 축소"와 "Use projects 설정 스위치"는 이번에 하지 않음
+- task 우클릭 "Assign to project…" → 프로젝트 검색 선택(`FuzzySuggestModal`, 공개 API에 submenu가 없어서). 현재 프로젝트 태그를 빼고 새 태그를 날짜 표기와 블록 id 앞에 삽입, "No project"로 태그 제거
+- 프로젝트 폴더 안 노트의 task는 폴더가 소속을 정하므로 지정 불가 안내
+- `TaskWriter`의 줄 수정(stale 검사 포함)을 `rewriteLine`으로 공통화
+- Kanban 상단 입력창 제거 → Todo 열 제목 오른쪽 `+` 버튼, 누르면 Todo 열 맨 위에 입력줄(Enter 추가 후 유지, Esc·빈 채로 포커스 이탈 시 닫힘). 열은 한 번만 만들고 렌더 때 목록만 교체해 입력 중 포커스 유지
+- Calendar 날짜 패널도 같은 방식(제목 줄 `+` → 목록 위 입력줄). 공용 `views/taskComposer.ts`
+
+### 3.4단계에 들어간 것
+
+- 목적: 기록 보관. 방식: 볼트 안 월별 로그 `SyncDev/log/YYYY-MM.md`에 덧붙이기만 함
+  - 형식: `- 2026-10-27 14:32 · todo → in progress · [[노트#^sd-xxxx|task 내용]] (프로젝트)`
+- 감지: 노트가 다시 인덱싱될 때 이전/이후 task를 비교(`core/statusDiff.ts`). 블록 id로 먼저 짝짓고, 없으면 파일 안에서 내용이 유일하게 같은 task끼리. SyncDev 화면 변경과 노트에서 직접 체크한 변경을 같은 경로로 잡음. 내용이 같은 task가 여럿이면 기록하지 않음
+- SyncDev 화면에서 상태를 바꾸면 그 줄에 `^sd-` 블록 id를 함께 붙임. 노트에서 직접 바꾼 경우에는 편집 중인 줄을 건드리지 않으려고 붙이지 않음(로그는 노트 링크 + 내용)
+- 버그 수정: 블록 id가 있는 task를 완료하면 `✅ 날짜`가 블록 id 뒤에 붙어 블록 링크(캔버스 카드 → task)가 깨지던 문제. 블록 id를 항상 줄 끝에 유지
+
+### 3.5단계에 들어간 것
+
+- 체크박스는 `[ ]` / `[x]` 두 상태만 사용. `[/]`(Tasks 플러그인의 진행 중)는 기본 Obsidian에서 체크된 것처럼 보여서 제외. 기존 `[/]`는 미완료로 읽고, 다음 변경 때 `[ ]`로 바뀜
+- 보드 열(`core/board.ts`): Today = 미완료 + `⏳` 오늘 이하(지난 예정일은 이월), Todo = 그 외 미완료, Done = 완료
+- 이동(`TaskWriter.moveTo`, 한 번의 쓰기): Today로 → `⏳ 오늘`, Todo로 → `⏳` 제거, Done으로 → 체크(`⏳` 유지)
+- Dated 필터는 Todo 열에만 적용(Today·Done에서 예정일 있는 task가 사라지지 않게)
+- Roadmap 카드: open / done 개수, 미완료 task는 Today 먼저
 
 ### 3.2단계 메모 (보류)
 
