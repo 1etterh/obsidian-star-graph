@@ -15,6 +15,7 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 |---|---|---|
 | 1 | parser, TaskIndex, TaskWriter, Backlog 뷰 | ✅ 완료 |
 | 1.1 | Backlog를 메인 영역 전용 탭으로 열기 | ✅ 완료 |
+| 1.2 | Backlog를 Todo / In progress / Done 보드로, 드래그로 상태 변경 | ✅ 완료 |
 | 2 | Calendar 뷰 (월간 그리드, 날짜별 task 개수, 날짜 클릭 시 그날 task) | ⏳ 다음 |
 | 3 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 4 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
@@ -29,6 +30,16 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 - `views/addTaskModal.ts`: "Add task to today" 명령
 - 정렬 기준: `➕` → 데일리 노트 날짜 → 파일 생성일
 
+### 1.2단계에 들어간 것
+
+- 상태는 체크박스 문자로 저장 (Tasks 플러그인 호환): `[ ]` Todo, `[/]` In progress, `[x]` Done. 그 외 문자(`-` 등)는 Done으로 취급
+- `parser.setTaskStatus`: 상태 변경 시 Done이면 `✅ 오늘` 추가, 아니면 `✅` 제거
+- `views/taskRow.ts`: task 행 렌더링을 분리, HTML5 drag and drop + 우클릭(모바일 길게 누르기) "Move to …" 메뉴
+- Done 열은 완료일 최신순으로 최근 30개만 표시 (헤더 숫자는 전체 개수)
+- 툴바 "Done" 토글(설정 "Show done column"과 동일 값, 저장됨)로 Done 열 숨기기. 보드·열 스크롤바는 4px
+- 컬럼 안 순서 변경(수동 정렬)은 없음. 순서는 정렬 기준(생성일)으로만 결정
+- 렌더마다 전용 `Component`를 만들어 이전 보드의 마크다운 자식 컴포넌트를 해제
+
 ## 남은 이슈 / 메모
 
 - 저장소: `obsidian-star-graph` fork 안에 `star`(star-graph)와 `syncdev`가 브랜치로 공존. 공개 배포 전에 별도 저장소로 분리 필요 (빈 저장소 생성 후 `git push <remote> syncdev:master`). 지금은 보류
@@ -36,4 +47,3 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 - 패키지 매니저는 pnpm. 셸 PATH에 pnpm이 없으면 `corepack pnpm <cmd>`
 - lint warning 4개: 설정 placeholder sentence case 3개(의도된 값), `getSettingDefinitions` 권고 1개
 - Obsidian 안에서 실제 동작 검증은 아직 안 함 (빌드, lint, 파서 스모크 테스트만 통과)
-- `MarkdownRenderer.render`에 뷰 자신을 component로 넘기고 있어 재렌더 시 자식 컴포넌트가 누적될 수 있음. 2단계에서 렌더 전용 Component로 분리 검토

@@ -1,8 +1,8 @@
 import { App, moment, Notice } from 'obsidian';
 import type { SyncDevSettings } from '../settings';
-import type { Task } from '../types';
+import type { Task, TaskStatus } from '../types';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
-import { MARKERS, toggleTaskLine } from './parser';
+import { MARKERS, setTaskStatus } from './parser';
 
 export class TaskWriter {
 	constructor(
@@ -10,7 +10,13 @@ export class TaskWriter {
 		private getSettings: () => SyncDevSettings,
 	) {}
 
+	/** Checking an unfinished task completes it, unchecking a done one reopens it */
 	async toggle(task: Task): Promise<void> {
+		await this.setStatus(task, task.status === 'done' ? 'todo' : 'done');
+	}
+
+	async setStatus(task: Task, status: TaskStatus): Promise<void> {
+		if (task.status === status) return;
 		const file = this.app.vault.getFileByPath(task.path);
 		if (!file) return;
 		let stale = false;
@@ -21,7 +27,11 @@ export class TaskWriter {
 				stale = true;
 				return data;
 			}
-			const next = toggleTaskLine(task.raw, moment().format(DATE_FORMAT));
+			const next = setTaskStatus(
+				task.raw,
+				status,
+				moment().format(DATE_FORMAT),
+			);
 			if (next === null) return data;
 			lines[task.line] = next;
 			return lines.join('\n');

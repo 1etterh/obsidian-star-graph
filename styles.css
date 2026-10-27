@@ -2,8 +2,9 @@
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-4-3);
-	max-width: var(--file-line-width);
-	margin: 0 auto;
+	box-sizing: border-box;
+	height: 100%;
+	overflow: hidden;
 	padding: var(--size-4-6) var(--size-4-4);
 }
 
@@ -31,8 +32,73 @@
 	color: var(--text-muted);
 }
 
-.syncdev-count {
+.syncdev-toolbar > :first-child {
 	margin-right: auto;
+}
+
+.syncdev-board {
+	flex: 1;
+	min-height: 0;
+	display: grid;
+	/* Columns always sit side by side; narrow panes scroll horizontally */
+	grid-auto-flow: column;
+	grid-auto-columns: minmax(260px, 1fr);
+	gap: var(--size-4-3);
+	overflow-x: auto;
+}
+
+.syncdev-column {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	min-height: 0;
+	padding: var(--size-4-2);
+	border: 2px solid transparent;
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+}
+
+.syncdev-column.is-drop-target {
+	border-color: var(--interactive-accent);
+	border-style: dashed;
+}
+
+.syncdev-column .syncdev-list {
+	flex: 1;
+	overflow-y: auto;
+}
+
+.syncdev-board::-webkit-scrollbar,
+.syncdev-column .syncdev-list::-webkit-scrollbar {
+	width: 4px;
+	height: 4px;
+}
+
+.syncdev-board::-webkit-scrollbar-track,
+.syncdev-column .syncdev-list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.syncdev-board::-webkit-scrollbar-thumb,
+.syncdev-column .syncdev-list::-webkit-scrollbar-thumb {
+	border: none;
+	border-radius: 2px;
+	background-color: var(--background-modifier-border);
+}
+
+.syncdev-column-header {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: 0 var(--size-4-1);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+.syncdev-count {
+	color: var(--text-faint);
+	font-weight: normal;
 }
 
 .syncdev-toggle {
@@ -47,6 +113,17 @@
 	gap: var(--size-4-2);
 	padding: var(--size-4-1) var(--size-4-2);
 	border-radius: var(--radius-s);
+	background-color: var(--background-primary);
+	cursor: grab;
+}
+
+.syncdev-task.is-dragging {
+	opacity: 0.4;
+}
+
+.syncdev-task.is-done .syncdev-task-text {
+	color: var(--text-muted);
+	text-decoration: line-through;
 }
 
 .syncdev-task:hover {

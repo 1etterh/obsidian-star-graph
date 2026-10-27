@@ -1,3 +1,5 @@
+import type { TaskStatus } from '../types';
+
 // Date markers follow the Tasks plugin format so notes stay compatible with it
 export const MARKERS = {
 	created: '➕',
@@ -6,19 +8,35 @@ export const MARKERS = {
 	done: '✅',
 } as const;
 
+// Checkbox characters, also as in the Tasks plugin ('/' is in progress)
+const STATUS_CHAR: Record<TaskStatus, string> = {
+	todo: ' ',
+	doing: '/',
+	done: 'x',
+};
+
 const TASK_RE = /^(\s*[-*+] \[)(.)(\]\s+)(.*)$/;
 const DATE = '(\\d{4}-\\d{2}-\\d{2})';
+const DONE_RE = new RegExp(`\\s*${MARKERS.done}\\uFE0F?\\s*${DATE}`, 'u');
 
 export interface ParsedLine {
-	done: boolean;
+	status: TaskStatus;
 	text: string;
 	created?: string;
 	scheduled?: string;
 	due?: string;
+	completed?: string;
 }
 
 function extractDate(body: string, marker: string): string | undefined {
 	return new RegExp(`${marker}\\uFE0F?\\s*${DATE}`, 'u').exec(body)?.[1];
+}
+
+/** Any other character (x, X, -, …) counts as done */
+function statusOf(char: string): TaskStatus {
+	if (char === STATUS_CHAR.todo) return 'todo';
+	if (char === STATUS_CHAR.doing) return 'doing';
+	return 'done';
 }
 
 export function parseTaskLine(raw: string): ParsedLine | null {
@@ -37,25 +55,26 @@ export function parseTaskLine(raw: string): ParsedLine | null {
 		.trim();
 
 	return {
-		done: status !== ' ',
+		status: statusOf(status),
 		text,
 		created: extractDate(body, MARKERS.created),
 		scheduled: extractDate(body, MARKERS.scheduled),
 		due: extractDate(body, MARKERS.due),
+		completed: extractDate(body, MARKERS.done),
 	};
 }
 
-/** Returns the line with its checkbox flipped, adding or removing the done date */
-export function toggleTaskLine(raw: string, today: string): string | null {
+/** Returns the line with the given status, adding the done date only when done */
+export function setTaskStatus(
+	raw: string,
+	status: TaskStatus,
+	today: string,
+): string | null {
 	const match = TASK_RE.exec(raw);
 	if (!match) return null;
-	const [, head = '', status = ' ', mid = '', body = ''] = match;
+	const [, head = '', , mid = '', body = ''] = match;
 
-	if (status === ' ') {
-		return `${head}x${mid}${body.trimEnd()} ${MARKERS.done} ${today}`;
-	}
-	const cleaned = body
-		.replace(new RegExp(`\\s*${MARKERS.done}\\uFE0F?\\s*${DATE}`, 'u'), '')
-		.trimEnd();
-	return `${head} ${mid}${cleaned}`;
+	const cleaned = body.replace(DONE_RE, '').trimEnd();
+	const done = status === 'done' ? ` ${MARKERS.done} ${today}` : '';
+	return `${head}${STATUS_CHAR[status]}${mid}${cleaned}${done}`;
 }

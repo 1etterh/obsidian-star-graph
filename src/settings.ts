@@ -7,6 +7,7 @@ export interface SyncDevSettings {
 	includeFolders: string[];
 	excludeFolders: string[];
 	defaultSort: SortOrder;
+	showDone: boolean;
 	/** Empty means follow the core Daily notes settings */
 	dailyFolder: string;
 	dailyFormat: string;
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: SyncDevSettings = {
 	includeFolders: [],
 	excludeFolders: [],
 	defaultSort: 'newest',
+	showDone: true,
 	dailyFolder: '',
 	dailyFormat: '',
 	addCreatedDate: true,
@@ -81,6 +83,16 @@ export class SyncDevSettingTab extends PluginSettingTab {
 						settings.defaultSort = value as SortOrder;
 						await this.plugin.saveSettings();
 					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Show done column')
+			.setDesc('Also toggled from the backlog toolbar.')
+			.addToggle((toggle) =>
+				toggle.setValue(settings.showDone).onChange(async (value) => {
+					settings.showDone = value;
+					await this.plugin.saveSettings();
+				}),
 			);
 
 		new Setting(containerEl).setName('Daily notes').setHeading();
