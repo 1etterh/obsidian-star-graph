@@ -1,114 +1,87 @@
-import {
-	Editor,
-	MarkdownView,
-	MarkdownFileInfo,
-	Modal,
-	Notice,
-	Plugin,
-} from 'obsidian';
-import {
-	DEFAULT_SETTINGS,
-	MyPluginSettings,
-	SampleSettingTab,
-} from './settings';
+import { debounce, Plugin } from 'obsidian';
+import { TaskIndex } from './core/taskIndex';
+import { TaskWriter } from './core/taskWriter';
+import { DEFAULT_SETTINGS, SyncDevSettings, SyncDevSettingTab } from './settings';
+import { AddTaskModal } from './views/addTaskModal';
+import { BACKLOG_VIEW_TYPE, BacklogView } from './views/backlogView';
 
-// Remember to rename these classes and interfaces!
+export default class SyncDevPlugin extends Plugin {
+	settings!: SyncDevSettings;
+	index!: TaskIndex;
+	writer!: TaskWriter;
 
-export default class MyPlugin extends Plugin {
-	settings!: MyPluginSettings;
+	// Folder settings change the index scope, so rebuild once typing settles
+	private rebuildSoon = debounce(() => void this.index.rebuild(), 500, true);
 
 	async onload() {
 		await this.loadSettings();
+		this.index = new TaskIndex(this.app, () => this.settings);
+		this.writer = new TaskWriter(this.app, () => this.settings);
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
-			},
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (
-				editor: Editor,
-				_ctx: MarkdownView | MarkdownFileInfo,
-			) => {
-				editor.replaceSelection('Sample editor command');
-			},
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView =
-					this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
-
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-				return false;
-			},
-		});
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(activeDocument, 'click', (_evt: MouseEvent) => {
-			new Notice('Click');
-		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(
-			window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000),
+		this.registerView(
+			BACKLOG_VIEW_TYPE,
+			(leaf) => new BacklogView(leaf, this),
 		);
+
+		this.addRibbonIcon('list-checks', 'Open backlog', () => {
+			void this.openBacklog();
+		});
+
+		this.addCommand({
+			id: 'open-backlog',
+			name: 'Open backlog',
+			callback: () => void this.openBacklog(),
+		});
+		this.addCommand({
+			id: 'add-task-today',
+			name: 'Add task to today',
+			callback: () => {
+				new AddTaskModal(this.app, (text) =>
+					this.writer.addToToday(text),
+				).open();
+			},
+		});
+
+		this.addSettingTab(new SyncDevSettingTab(this.app, this));
+
+		this.app.workspace.onLayoutReady(() => {
+			void this.index.rebuild();
+			this.registerEvent(
+				this.app.metadataCache.on('changed', (file, data, cache) =>
+					this.index.onChanged(file, data, cache),
+				),
+			);
+			this.registerEvent(
+				this.app.vault.on('delete', (file) => this.index.onDeleted(file)),
+			);
+			this.registerEvent(
+				this.app.vault.on(
+					'rename',
+					(file, oldPath) => void this.index.onRenamed(file, oldPath),
+				),
+			);
+		});
 	}
 
-	onunload() {}
+	async openBacklog(): Promise<void> {
+		const leaf = await this.app.workspace.ensureSideLeaf(
+			BACKLOG_VIEW_TYPE,
+			'right',
+			{ reveal: true },
+		);
+		await this.app.workspace.revealLeaf(leaf);
+	}
 
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
 			DEFAULT_SETTINGS,
-			(await this.loadData()) as Partial<MyPluginSettings>,
+			(await this.loadData()) as Partial<SyncDevSettings>,
 		);
 	}
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-class SampleModal extends Modal {
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
+		this.rebuildSoon();
 	}
 }

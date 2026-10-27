@@ -1,38 +1,124 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import MyPlugin from './main';
+import type SyncDevPlugin from './main';
+import type { SortOrder } from './types';
 
-export interface MyPluginSettings {
-	mySetting: string;
+export interface SyncDevSettings {
+	/** Empty means the whole vault */
+	includeFolders: string[];
+	excludeFolders: string[];
+	defaultSort: SortOrder;
+	/** Empty means follow the core Daily notes settings */
+	dailyFolder: string;
+	dailyFormat: string;
+	addCreatedDate: boolean;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default',
+export const DEFAULT_SETTINGS: SyncDevSettings = {
+	includeFolders: [],
+	excludeFolders: [],
+	defaultSort: 'newest',
+	dailyFolder: '',
+	dailyFormat: '',
+	addCreatedDate: true,
 };
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+function parseFolders(value: string): string[] {
+	return value
+		.split('\n')
+		.map((s) => s.trim().replace(/^\/+|\/+$/g, ''))
+		.filter(Boolean);
+}
 
-	constructor(app: App, plugin: MyPlugin) {
+export class SyncDevSettingTab extends PluginSettingTab {
+	constructor(
+		app: App,
+		private plugin: SyncDevPlugin,
+	) {
 		super(app, plugin);
-		this.plugin = plugin;
 	}
 
 	display(): void {
 		const { containerEl } = this;
-
+		const { settings } = this.plugin;
 		containerEl.empty();
 
+		new Setting(containerEl).setName('Task scope').setHeading();
+
 		new Setting(containerEl)
-			.setName('Settings #1')
-			.setDesc("It's a secret")
-			.addText((text) =>
+			.setName('Include folders')
+			.setDesc('One folder per line. Leave empty to scan the whole vault.')
+			.addTextArea((text) =>
 				text
-					.setPlaceholder('Enter your secret')
-					.setValue(this.plugin.settings.mySetting)
+					.setPlaceholder('Daily\nProjects')
+					.setValue(settings.includeFolders.join('\n'))
 					.onChange(async (value) => {
-						this.plugin.settings.mySetting = value;
+						settings.includeFolders = parseFolders(value);
 						await this.plugin.saveSettings();
 					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Exclude folders')
+			.setDesc('One folder per line.')
+			.addTextArea((text) =>
+				text
+					.setPlaceholder('Templates\nArchive')
+					.setValue(settings.excludeFolders.join('\n'))
+					.onChange(async (value) => {
+						settings.excludeFolders = parseFolders(value);
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Default sort')
+			.addDropdown((dropdown) =>
+				dropdown
+					.addOption('newest', 'Newest first')
+					.addOption('oldest', 'Oldest first')
+					.setValue(settings.defaultSort)
+					.onChange(async (value) => {
+						settings.defaultSort = value as SortOrder;
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl).setName('Daily notes').setHeading();
+
+		new Setting(containerEl)
+			.setName('Daily note folder')
+			.setDesc('Leave empty to use the core daily notes setting.')
+			.addText((text) =>
+				text
+					.setPlaceholder('Daily')
+					.setValue(settings.dailyFolder)
+					.onChange(async (value) => {
+						settings.dailyFolder = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Daily note date format')
+			.setDesc('Moment.js format. Leave empty to use the core daily notes setting.')
+			.addText((text) =>
+				text
+					.setPlaceholder('YYYY-MM-DD')
+					.setValue(settings.dailyFormat)
+					.onChange(async (value) => {
+						settings.dailyFormat = value.trim();
+						await this.plugin.saveSettings();
+					}),
+			);
+
+		new Setting(containerEl)
+			.setName('Add created date')
+			.setDesc('Append ➕ with today\'s date to new tasks.')
+			.addToggle((toggle) =>
+				toggle.setValue(settings.addCreatedDate).onChange(async (value) => {
+					settings.addCreatedDate = value;
+					await this.plugin.saveSettings();
+				}),
 			);
 	}
 }
