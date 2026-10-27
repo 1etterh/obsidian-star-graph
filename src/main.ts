@@ -13,14 +13,14 @@ export default class SyncDevPlugin extends Plugin {
 	writer!: TaskWriter;
 	statusLog!: StatusLog;
 
-	// Folder settings change the index scope, so rebuild once typing settles
+	// Folder settings (including the log folder) change the index scope, so rebuild once typing settles
 	private rebuildSoon = debounce(() => void this.index.rebuild(), 500, true);
 
 	async onload() {
 		await this.loadSettings();
 		this.index = new TaskIndex(this.app, () => this.settings);
 		this.writer = new TaskWriter(this.app, () => this.settings);
-		this.statusLog = new StatusLog(this.app);
+		this.statusLog = new StatusLog(this.app, () => this.settings);
 
 		registerIcons();
 		this.registerView(

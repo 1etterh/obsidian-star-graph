@@ -29,6 +29,7 @@
 | 3.5 | In progress 제거 → Todo / Today / Done 보드 | ✅ 완료 |
 | 3.6 | 완료 날짜 표기 선택화, 상태 로그 표 형식 | ✅ 완료 |
 | 3.7 | 단순화: 프로젝트·DDD(이벤트 스토밍) 기능 제거, 백로그 추적만 유지 | ✅ 완료 |
+| 3.8 | 상태 로그 폴더를 설정으로(기본 `SyncDev/logs`, 비우면 끔) | ✅ 완료 |
 | 4 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 5 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
 | 6 | Obsidian Bases 연동: 프로젝트 index.md에 진행 상황 속성 기록 | ❌ 제거 (프로젝트 기능과 함께) |
@@ -96,9 +97,18 @@
 
 - 프로젝트 관리와 DDD(이벤트 스토밍) 기능은 일단 빼고, 데일리 노트 task의 백로그 추적만 남김
 - 제거: 프로젝트(폴더·태그·필터·허브 노트·메뉴·Assign to project), Roadmap 탭, 이벤트 스토밍 Canvas 연동, 관련 설정·스타일
-- 유지: Kanban(Todo / Today / Done) + Calendar 탭, 툴바 필터(Dated, Done, 정렬)와 설정의 폴더 포함·제외, 상태 변경 로그(`SyncDev/log/YYYY-MM.md`)
+- 유지: Kanban(Todo / Today / Done) + Calendar 탭, 툴바 필터(Dated, Done, 정렬)와 설정의 폴더 포함·제외, 상태 변경 로그(`SyncDev/log/YYYY-MM.md`, 3.8에서 폴더 설정화)
 - 이후 아이디어(7): 프로젝트 대신 todo에 폴더 경로를 태그로 붙여 묶어 보기. 제거한 태그 파싱·필터 코드(`ad5cb7b`)를 참고할 수 있음
 - 제거한 코드는 `ad5cb7b` 커밋에 남아 있으니 다시 필요하면 거기서 가져오기. 볼트에 이미 만든 `SyncDev/projects/`, 캔버스, 허브 노트는 그대로 둠
+
+### 3.8단계에 들어간 것
+
+- 설정 "Log folder"(`logFolder`, 기본 `SyncDev/logs`). 비우면 상태 로그를 기록하지 않음
+- 숨김 저장(점 폴더 `.syncdev/`, 플러그인 폴더, `data.json`)은 채택 안 함: Obsidian이 인덱싱하지 않아 블록 링크·열람·이름 변경 추적이 깨지고, Obsidian Sync에서도 빠질 수 있음. 로그는 사람이 읽는 기록이라 보이는 폴더 유지
+- 그래프·검색에서 숨기려면 코어 **Files and links → Excluded files**에 추가하도록 설정 설명에 안내(플러그인이 코어 설정을 바꾸지 않음)
+- 로그 폴더는 task 인덱스 범위에서 자동 제외
+- 기본값을 `syncdev/logs`가 아닌 `SyncDev/logs`로: macOS처럼 대소문자를 구분하지 않는 파일 시스템에서 기존 `SyncDev/`와 충돌하지 않게
+- 기존 `SyncDev/log/` 파일은 자동 이동하지 않음. 필요하면 직접 옮기기
 
 ## 남은 이슈 / 메모
 
@@ -107,5 +117,5 @@
 - 저장소: `obsidian-star-graph` fork 안에 `star`(star-graph)와 `syncdev`가 브랜치로 공존. 공개 배포 전에 별도 저장소로 분리 필요 (빈 저장소 생성 후 `git push <remote> syncdev:master`). 지금은 보류
 - 폴더명(`obsidian-star-graph`)과 plugin id(`syncdev`)가 다름. 브랜치를 바꾸면 Obsidian에서 플러그인을 다시 활성화해야 함
 - 패키지 매니저는 pnpm. 셸 PATH에 pnpm이 없으면 `corepack pnpm <cmd>`
-- lint warning 6개: 설정 placeholder sentence case 3개, 'SyncDev' 이름 2개(의도된 값), `getSettingDefinitions` 권고 1개
+- lint warning 7개: 설정 placeholder sentence case 4개, 'SyncDev' 이름 2개(의도된 값), `getSettingDefinitions` 권고 1개
 - Obsidian 안에서 실제 동작 검증은 아직 안 함 (빌드, lint, 파서 스모크 테스트만 통과)

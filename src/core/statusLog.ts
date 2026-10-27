@@ -1,23 +1,27 @@
 import { App, moment, normalizePath, TFile } from 'obsidian';
+import type { SyncDevSettings } from '../settings';
 import type { Task } from '../types';
 import type { StatusChange } from './statusDiff';
-
-const LOG_FOLDER = 'SyncDev/log';
 
 const TABLE_HEADER =
 	'| updatedAt | taskId | content | status |\n' +
 	'| --- | --- | --- | --- |\n';
 
 /**
- * Appends every task status change as a table row to a monthly log, e.g. SyncDev/log/2026-10.md.
+ * Appends every task status change as a table row to a monthly log, e.g. SyncDev/logs/2026-10.md.
  * Append-only, so syncing two devices rarely conflicts.
  */
 export class StatusLog {
-	constructor(private app: App) {}
+	constructor(
+		private app: App,
+		private getSettings: () => SyncDevSettings,
+	) {}
 
 	async record(changes: StatusChange[]): Promise<void> {
+		const folder = this.getSettings().logFolder;
+		if (!folder) return;
 		const now = moment();
-		const path = normalizePath(`${LOG_FOLDER}/${now.format('YYYY-MM')}.md`);
+		const path = normalizePath(`${folder}/${now.format('YYYY-MM')}.md`);
 		const rows = changes.map((c) => this.row(c.after, path, now));
 		const file = await this.ensureFile(path);
 		await this.app.vault.process(file, (data) => {

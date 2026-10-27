@@ -78,7 +78,9 @@ export class TaskIndex extends Events {
 	}
 
 	private inScope(path: string): boolean {
-		const { includeFolders, excludeFolders } = this.getSettings();
+		const { includeFolders, excludeFolders, logFolder } = this.getSettings();
+		// The status log links to tasks but never holds them
+		if (logFolder && inFolder(path, logFolder)) return false;
 		if (excludeFolders.some((f) => f && inFolder(path, f))) return false;
 		const include = includeFolders.filter(Boolean);
 		return include.length === 0 || include.some((f) => inFolder(path, f));

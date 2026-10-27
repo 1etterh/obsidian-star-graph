@@ -13,6 +13,8 @@ export interface SyncDevSettings {
 	dailyFormat: string;
 	addCreatedDate: boolean;
 	addDoneDate: boolean;
+	/** Empty turns the status log off */
+	logFolder: string;
 }
 
 export const DEFAULT_SETTINGS: SyncDevSettings = {
@@ -24,6 +26,7 @@ export const DEFAULT_SETTINGS: SyncDevSettings = {
 	dailyFormat: '',
 	addCreatedDate: true,
 	addDoneDate: false,
+	logFolder: 'SyncDev/logs',
 };
 
 function parseFolders(value: string): string[] {
@@ -143,6 +146,24 @@ export class SyncDevSettingTab extends PluginSettingTab {
 					settings.addDoneDate = value;
 					await this.plugin.saveSettings();
 				}),
+			);
+
+		new Setting(containerEl).setName('Status log').setHeading();
+
+		new Setting(containerEl)
+			.setName('Log folder')
+			.setDesc(
+				'Status changes are appended to a monthly note here. Leave empty to turn logging off. ' +
+					'To hide it from search and graph, add it to Settings → Files and links → Excluded files.',
+			)
+			.addText((text) =>
+				text
+					.setPlaceholder('SyncDev/logs')
+					.setValue(settings.logFolder)
+					.onChange(async (value) => {
+						settings.logFolder = value.trim().replace(/^\/+|\/+$/g, '');
+						await this.plugin.saveSettings();
+					}),
 			);
 	}
 }
