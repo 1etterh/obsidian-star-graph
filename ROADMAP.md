@@ -102,6 +102,8 @@
 
 ## 남은 이슈 / 메모
 
+- 리본 아이콘: `icons/E-window-code.svg`(창 + `</>`). `icons/`에 다른 시안(원형 로고, 달력 + 로고, sync 화살표)도 보관
+
 - 저장소: `obsidian-star-graph` fork 안에 `star`(star-graph)와 `syncdev`가 브랜치로 공존. 공개 배포 전에 별도 저장소로 분리 필요 (빈 저장소 생성 후 `git push <remote> syncdev:master`). 지금은 보류
 - 폴더명(`obsidian-star-graph`)과 plugin id(`syncdev`)가 다름. 브랜치를 바꾸면 Obsidian에서 플러그인을 다시 활성화해야 함
 - 패키지 매니저는 pnpm. 셸 PATH에 pnpm이 없으면 `corepack pnpm <cmd>`
