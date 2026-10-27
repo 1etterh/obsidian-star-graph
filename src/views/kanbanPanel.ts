@@ -1,33 +1,12 @@
-import { Component, ItemView, moment, WorkspaceLeaf } from 'obsidian';
-import { DATE_FORMAT } from '../core/dailyNotes';
+import { Component } from 'obsidian';
+import { sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { SortOrder, Task, TaskStatus } from '../types';
-import { renderTaskRow, STATUS_LABELS, TaskRowHandlers } from './taskRow';
-
-export const BACKLOG_VIEW_TYPE = 'syncdev-backlog';
+import { openTask, renderTaskRow, STATUS_LABELS, TaskRowHandlers } from './taskRow';
 
 const COLUMNS: TaskStatus[] = ['todo', 'doing', 'done'];
 // Done tasks pile up over time; only the most recently completed are shown
 const DONE_LIMIT = 30;
-
-/** Created marker, then daily note date, then file creation date */
-function createdKey(task: Task): string {
-	return (
-		task.created ??
-		task.dailyDate ??
-		moment(task.fileCtime).format(DATE_FORMAT)
-	);
-}
-
-export function sortTasks(tasks: Task[], order: SortOrder): Task[] {
-	const dir = order === 'newest' ? -1 : 1;
-	return [...tasks].sort((a, b) => {
-		const byDate = createdKey(a).localeCompare(createdKey(b));
-		if (byDate !== 0) return byDate * dir;
-		// Same day: keep note order (later lines are newer)
-		return (a.path.localeCompare(b.path) || a.line - b.line) * dir;
-	});
-}
 
 /** Most recently completed first; tasks without a done date go last */
 function sortDone(tasks: Task[]): Task[] {
@@ -36,7 +15,8 @@ function sortDone(tasks: Task[]): Task[] {
 	);
 }
 
-export class BacklogView extends ItemView {
+/** Todo / In progress / Done board, shown in the Kanban tab */
+export class KanbanPanel extends Component {
 	private boardEl!: HTMLElement;
 	private sort: SortOrder;
 	private includeDated = false;
@@ -46,31 +26,15 @@ export class BacklogView extends ItemView {
 	private dragged: Task | null = null;
 
 	constructor(
-		leaf: WorkspaceLeaf,
 		private plugin: SyncDevPlugin,
+		private containerEl: HTMLElement,
 	) {
-		super(leaf);
+		super();
 		this.sort = plugin.settings.defaultSort;
 	}
 
-	getViewType(): string {
-		return BACKLOG_VIEW_TYPE;
-	}
-
-	getDisplayText(): string {
-		return 'Backlog';
-	}
-
-	getIcon(): string {
-		return 'list-checks';
-	}
-
-	async onOpen(): Promise<void> {
-		const root = this.contentEl;
-		root.empty();
-		root.addClass('syncdev-backlog');
-
-		root.createEl('h2', { cls: 'syncdev-title', text: 'Backlog' });
+	onload(): void {
+		const root = this.containerEl.createDiv({ cls: 'syncdev-kanban' });
 		this.renderAddInput(root);
 		this.renderToolbar(root);
 		this.boardEl = root.createDiv({ cls: 'syncdev-board' });
@@ -78,7 +42,7 @@ export class BacklogView extends ItemView {
 		this.registerEvent(
 			this.plugin.index.on('updated', () => void this.renderBoard()),
 		);
-		await this.renderBoard();
+		void this.renderBoard();
 	}
 
 	private renderAddInput(root: HTMLElement): void {
@@ -93,7 +57,7 @@ export class BacklogView extends ItemView {
 			const text = input.value.trim();
 			if (!text) return;
 			input.value = '';
-			void this.plugin.writer.addToToday(text);
+			void this.plugin.writer.addToDaily(text);
 		});
 	}
 
@@ -167,7 +131,7 @@ export class BacklogView extends ItemView {
 				list.createDiv({ cls: 'syncdev-empty', text: 'No tasks' });
 			}
 			for (const task of shown) {
-				await renderTaskRow(this.app, list, task, component, this.rowHandlers);
+				await renderTaskRow(this.plugin.app, list, task, component, this.rowHandlers);
 				if (token !== this.renderToken) {
 					this.removeChild(component);
 					return;
@@ -219,7 +183,7 @@ export class BacklogView extends ItemView {
 	private rowHandlers: TaskRowHandlers = {
 		toggle: (task) => void this.plugin.writer.toggle(task),
 		move: (task, status) => void this.plugin.writer.setStatus(task, status),
-		open: (task) => void this.openTask(task),
+		open: (task) => void openTask(this.plugin.app, task),
 		dragStart: (task) => {
 			this.dragged = task;
 		},
@@ -230,12 +194,4 @@ export class BacklogView extends ItemView {
 				.forEach((el) => el.removeClass('is-drop-target'));
 		},
 	};
-
-	private async openTask(task: Task): Promise<void> {
-		const file = this.app.vault.getFileByPath(task.path);
-		if (!file) return;
-		await this.app.workspace.getLeaf(false).openFile(file, {
-			eState: { line: task.line },
-		});
-	}
 }

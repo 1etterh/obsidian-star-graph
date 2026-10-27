@@ -1,9 +1,10 @@
 import { debounce, Plugin } from 'obsidian';
 import { TaskIndex } from './core/taskIndex';
+import { registerIcons, SYNCDEV_ICON } from './icon';
 import { TaskWriter } from './core/taskWriter';
 import { DEFAULT_SETTINGS, SyncDevSettings, SyncDevSettingTab } from './settings';
 import { AddTaskModal } from './views/addTaskModal';
-import { BACKLOG_VIEW_TYPE, BacklogView } from './views/backlogView';
+import { SYNCDEV_VIEW_TYPE, SyncDevTab, SyncDevView } from './views/syncdevView';
 
 export default class SyncDevPlugin extends Plugin {
 	settings!: SyncDevSettings;
@@ -18,26 +19,38 @@ export default class SyncDevPlugin extends Plugin {
 		this.index = new TaskIndex(this.app, () => this.settings);
 		this.writer = new TaskWriter(this.app, () => this.settings);
 
+		registerIcons();
 		this.registerView(
-			BACKLOG_VIEW_TYPE,
-			(leaf) => new BacklogView(leaf, this),
+			SYNCDEV_VIEW_TYPE,
+			(leaf) => new SyncDevView(leaf, this),
 		);
 
-		this.addRibbonIcon('list-checks', 'Open backlog', () => {
-			void this.openBacklog();
+		this.addRibbonIcon(SYNCDEV_ICON, 'Open SyncDev', () => {
+			void this.openSyncDev();
 		});
 
+		// IDs kept from when kanban and calendar were separate views
 		this.addCommand({
 			id: 'open-backlog',
-			name: 'Open backlog',
-			callback: () => void this.openBacklog(),
+			name: 'Open kanban',
+			callback: () => void this.openSyncDev('kanban'),
+		});
+		this.addCommand({
+			id: 'open-calendar',
+			name: 'Open calendar',
+			callback: () => void this.openSyncDev('calendar'),
+		});
+		this.addCommand({
+			id: 'open-roadmap',
+			name: 'Open roadmap',
+			callback: () => void this.openSyncDev('roadmap'),
 		});
 		this.addCommand({
 			id: 'add-task-today',
 			name: 'Add task to today',
 			callback: () => {
 				new AddTaskModal(this.app, (text) =>
-					this.writer.addToToday(text),
+					this.writer.addToDaily(text),
 				).open();
 			},
 		});
@@ -63,15 +76,22 @@ export default class SyncDevPlugin extends Plugin {
 		});
 	}
 
-	/** Opens the backlog as a tab in the main area, reusing one if already open */
-	async openBacklog(): Promise<void> {
+	/**
+	 * Opens SyncDev as a tab in the main area, reusing one if already open.
+	 * Without `tab`, an open view keeps its current tab.
+	 */
+	async openSyncDev(tab?: SyncDevTab): Promise<void> {
 		const { workspace } = this.app;
 		const existing = workspace
-			.getLeavesOfType(BACKLOG_VIEW_TYPE)
+			.getLeavesOfType(SYNCDEV_VIEW_TYPE)
 			.find((leaf) => leaf.getRoot() === workspace.rootSplit);
 		const leaf = existing ?? workspace.getLeaf('tab');
-		if (!existing) {
-			await leaf.setViewState({ type: BACKLOG_VIEW_TYPE, active: true });
+		if (!existing || tab) {
+			await leaf.setViewState({
+				type: SYNCDEV_VIEW_TYPE,
+				active: true,
+				state: tab ? { tab } : {},
+			});
 		}
 		await workspace.revealLeaf(leaf);
 	}

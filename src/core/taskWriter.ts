@@ -39,12 +39,13 @@ export class TaskWriter {
 		if (stale) new Notice('Task changed in the note. Try again.');
 	}
 
-	/** Appends a new task to today's daily note */
-	async addToToday(text: string): Promise<void> {
+	/** Appends a new task to the daily note of `date` (today by default) */
+	async addToDaily(text: string, date: moment.Moment = moment()): Promise<void> {
 		const settings = this.getSettings();
 		const file = await getOrCreateDailyNote(
 			this.app,
 			getDailyNoteConfig(this.app, settings),
+			date,
 		);
 		const created = settings.addCreatedDate
 			? ` ${MARKERS.created} ${moment().format(DATE_FORMAT)}`

@@ -12,8 +12,18 @@ export interface TaskRowHandlers {
 	toggle(task: Task): void;
 	move(task: Task, status: TaskStatus): void;
 	open(task: Task): void;
-	dragStart(task: Task): void;
-	dragEnd(): void;
+	/** Rows are draggable only when these are given */
+	dragStart?(task: Task): void;
+	dragEnd?(): void;
+}
+
+/** Opens the note containing the task, scrolled to its line */
+export async function openTask(app: App, task: Task): Promise<void> {
+	const file = app.vault.getFileByPath(task.path);
+	if (!file) return;
+	await app.workspace.getLeaf(false).openFile(file, {
+		eState: { line: task.line },
+	});
 }
 
 /** Renders a draggable task row; `component` owns the rendered markdown */
@@ -26,17 +36,19 @@ export async function renderTaskRow(
 ): Promise<void> {
 	const row = parent.createDiv({ cls: 'syncdev-task' });
 	row.toggleClass('is-done', task.status === 'done');
-	row.draggable = true;
-	row.addEventListener('dragstart', (evt) => {
-		evt.dataTransfer?.setData('text/plain', task.text);
-		if (evt.dataTransfer) evt.dataTransfer.effectAllowed = 'move';
-		row.addClass('is-dragging');
-		handlers.dragStart(task);
-	});
-	row.addEventListener('dragend', () => {
-		row.removeClass('is-dragging');
-		handlers.dragEnd();
-	});
+	if (handlers.dragStart) {
+		row.draggable = true;
+		row.addEventListener('dragstart', (evt) => {
+			evt.dataTransfer?.setData('text/plain', task.text);
+			if (evt.dataTransfer) evt.dataTransfer.effectAllowed = 'move';
+			row.addClass('is-dragging');
+			handlers.dragStart?.(task);
+		});
+		row.addEventListener('dragend', () => {
+			row.removeClass('is-dragging');
+			handlers.dragEnd?.();
+		});
+	}
 	// Touch devices have no HTML drag and drop, so offer the same moves here
 	row.addEventListener('contextmenu', (evt) => {
 		evt.preventDefault();
