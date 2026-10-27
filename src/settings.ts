@@ -8,6 +8,11 @@ export interface SyncDevSettings {
 	excludeFolders: string[];
 	defaultSort: SortOrder;
 	showDone: boolean;
+	/** Each direct subfolder is a project */
+	projectRoot: string;
+	/** Project names unchecked in the project filter */
+	hiddenProjects: string[];
+	showUnassigned: boolean;
 	/** Empty means follow the core Daily notes settings */
 	dailyFolder: string;
 	dailyFormat: string;
@@ -19,6 +24,9 @@ export const DEFAULT_SETTINGS: SyncDevSettings = {
 	excludeFolders: [],
 	defaultSort: 'newest',
 	showDone: true,
+	projectRoot: 'SyncDev',
+	hiddenProjects: [],
+	showUnassigned: true,
 	dailyFolder: '',
 	dailyFormat: '',
 	addCreatedDate: true,
@@ -93,6 +101,21 @@ export class SyncDevSettingTab extends PluginSettingTab {
 					settings.showDone = value;
 					await this.plugin.saveSettings();
 				}),
+			);
+
+		new Setting(containerEl).setName('Projects').setHeading();
+
+		new Setting(containerEl)
+			.setName('Project folder')
+			.setDesc('Each folder inside it is a project. Tag a task with the folder name to assign it.')
+			.addText((text) =>
+				text
+					.setPlaceholder('SyncDev')
+					.setValue(settings.projectRoot)
+					.onChange(async (value) => {
+						settings.projectRoot = value.trim();
+						await this.plugin.saveSettings();
+					}),
 			);
 
 		new Setting(containerEl).setName('Daily notes').setHeading();

@@ -1,15 +1,18 @@
-import { debounce, Plugin } from 'obsidian';
+import { debounce, MarkdownView, Plugin, TFile } from 'obsidian';
+import { ProjectRegistry } from './core/projects';
 import { TaskIndex } from './core/taskIndex';
 import { registerIcons, SYNCDEV_ICON } from './icon';
 import { TaskWriter } from './core/taskWriter';
+import { registerProjectEvents } from './projectEvents';
 import { DEFAULT_SETTINGS, SyncDevSettings, SyncDevSettingTab } from './settings';
-import { AddTaskModal } from './views/addTaskModal';
+import { PromptModal } from './views/promptModal';
 import { SYNCDEV_VIEW_TYPE, SyncDevTab, SyncDevView } from './views/syncdevView';
 
 export default class SyncDevPlugin extends Plugin {
 	settings!: SyncDevSettings;
 	index!: TaskIndex;
 	writer!: TaskWriter;
+	projects!: ProjectRegistry;
 
 	// Folder settings change the index scope, so rebuild once typing settles
 	private rebuildSoon = debounce(() => void this.index.rebuild(), 500, true);
@@ -18,6 +21,7 @@ export default class SyncDevPlugin extends Plugin {
 		await this.loadSettings();
 		this.index = new TaskIndex(this.app, () => this.settings);
 		this.writer = new TaskWriter(this.app, () => this.settings);
+		this.projects = new ProjectRegistry(this.app, () => this.settings);
 
 		registerIcons();
 		this.registerView(
@@ -46,11 +50,20 @@ export default class SyncDevPlugin extends Plugin {
 			callback: () => void this.openSyncDev('roadmap'),
 		});
 		this.addCommand({
+			id: 'new-project',
+			name: 'New project',
+			callback: () => this.promptNewProject(),
+		});
+		this.addCommand({
 			id: 'add-task-today',
 			name: 'Add task to today',
 			callback: () => {
-				new AddTaskModal(this.app, (text) =>
-					this.writer.addToDaily(text),
+				new PromptModal(
+					this.app,
+					'Add task to today',
+					'What needs doing?',
+					'Add',
+					(text) => this.writer.addToDaily(text),
 				).open();
 			},
 		});
@@ -59,6 +72,8 @@ export default class SyncDevPlugin extends Plugin {
 
 		this.app.workspace.onLayoutReady(() => {
 			void this.index.rebuild();
+			this.projects.refresh();
+			registerProjectEvents(this);
 			this.registerEvent(
 				this.app.metadataCache.on('changed', (file, data, cache) =>
 					this.index.onChanged(file, data, cache),
@@ -96,6 +111,32 @@ export default class SyncDevPlugin extends Plugin {
 		await workspace.revealLeaf(leaf);
 	}
 
+	promptNewProject(): void {
+		new PromptModal(
+			this.app,
+			'New project',
+			'Project name',
+			'Create',
+			async (name) => {
+				const index = await this.projects.create(name);
+				if (index) await this.openAndFocus(index);
+			},
+			(name) => this.projects.validateName(name),
+		).open();
+	}
+
+	/** Opens the note in a new tab with the cursor at the end */
+	private async openAndFocus(file: TFile): Promise<void> {
+		const leaf = this.app.workspace.getLeaf('tab');
+		await leaf.openFile(file, { active: true, state: { mode: 'source' } });
+		this.app.workspace.setActiveLeaf(leaf, { focus: true });
+		if (leaf.view instanceof MarkdownView) {
+			const { editor } = leaf.view;
+			editor.focus();
+			editor.setCursor(editor.lastLine(), 0);
+		}
+	}
+
 	async loadSettings() {
 		this.settings = Object.assign(
 			{},
@@ -106,6 +147,13 @@ export default class SyncDevPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+		this.projects.refresh();
 		this.rebuildSoon();
+	}
+
+	/** Saves the project filter; it only changes what is shown, so no rebuild */
+	async saveFilter() {
+		await this.saveData(this.settings);
+		this.projects.refresh();
 	}
 }

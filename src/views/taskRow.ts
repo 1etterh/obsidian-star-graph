@@ -1,6 +1,7 @@
 import { App, Component, MarkdownRenderer, Menu, moment } from 'obsidian';
 import { DATE_FORMAT } from '../core/dailyNotes';
-import type { Task, TaskStatus } from '../types';
+import { stripTag } from '../core/parser';
+import type { Project, Task, TaskStatus } from '../types';
 
 export const STATUS_LABELS: Record<TaskStatus, string> = {
 	todo: 'Todo',
@@ -26,13 +27,21 @@ export async function openTask(app: App, task: Task): Promise<void> {
 	});
 }
 
-/** Renders a draggable task row; `component` owns the rendered markdown */
+/** Shows the project as a colored label */
+export function renderProjectLabel(parent: HTMLElement, project: Project): void {
+	parent
+		.createSpan({ cls: 'syncdev-project', text: project.name })
+		.setCssProps({ '--syncdev-project-color': `var(${project.color})` });
+}
+
+/** Renders a task row; `component` owns the rendered markdown */
 export async function renderTaskRow(
 	app: App,
 	parent: HTMLElement,
 	task: Task,
 	component: Component,
 	handlers: TaskRowHandlers,
+	project?: Project,
 ): Promise<void> {
 	const row = parent.createDiv({ cls: 'syncdev-task' });
 	row.toggleClass('is-done', task.status === 'done');
@@ -76,9 +85,12 @@ export async function renderTaskRow(
 
 	const body = row.createDiv({ cls: 'syncdev-task-body' });
 	const textEl = body.createDiv({ cls: 'syncdev-task-text' });
-	await MarkdownRenderer.render(app, task.text, textEl, task.path, component);
+	// The project label replaces the tag in the text
+	const text = project ? stripTag(task.text, project.tag) : task.text;
+	await MarkdownRenderer.render(app, text, textEl, task.path, component);
 
 	const meta = body.createDiv({ cls: 'syncdev-task-meta' });
+	if (project) renderProjectLabel(meta, project);
 	const source = meta.createEl('a', {
 		cls: 'syncdev-source',
 		text: task.dailyDate ?? task.path.replace(/\.md$/, ''),

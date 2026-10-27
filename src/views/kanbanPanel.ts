@@ -42,6 +42,9 @@ export class KanbanPanel extends Component {
 		this.registerEvent(
 			this.plugin.index.on('updated', () => void this.renderBoard()),
 		);
+		this.registerEvent(
+			this.plugin.projects.on('changed', () => void this.renderBoard()),
+		);
 		void this.renderBoard();
 	}
 
@@ -104,6 +107,7 @@ export class KanbanPanel extends Component {
 		const groups: Record<TaskStatus, Task[]> = { todo: [], doing: [], done: [] };
 		for (const task of this.plugin.index.all()) {
 			if (!this.includeDated && (task.scheduled || task.due)) continue;
+			if (!this.plugin.projects.isVisible(task)) continue;
 			groups[task.status].push(task);
 		}
 		return {
@@ -131,7 +135,14 @@ export class KanbanPanel extends Component {
 				list.createDiv({ cls: 'syncdev-empty', text: 'No tasks' });
 			}
 			for (const task of shown) {
-				await renderTaskRow(this.plugin.app, list, task, component, this.rowHandlers);
+				await renderTaskRow(
+					this.plugin.app,
+					list,
+					task,
+					component,
+					this.rowHandlers,
+					this.plugin.projects.projectOf(task),
+				);
 				if (token !== this.renderToken) {
 					this.removeChild(component);
 					return;

@@ -18,6 +18,9 @@ const STATUS_CHAR: Record<TaskStatus, string> = {
 const TASK_RE = /^(\s*[-*+] \[)(.)(\]\s+)(.*)$/;
 const DATE = '(\\d{4}-\\d{2}-\\d{2})';
 const DONE_RE = new RegExp(`\\s*${MARKERS.done}\\uFE0F?\\s*${DATE}`, 'u');
+// Characters Obsidian allows in a tag
+export const TAG_CHARS = '[\\p{L}\\p{N}_\\-/]';
+const TAG_RE = new RegExp(`(?:^|\\s)#(${TAG_CHARS}+)`, 'gu');
 
 export interface ParsedLine {
 	status: TaskStatus;
@@ -26,6 +29,7 @@ export interface ParsedLine {
 	scheduled?: string;
 	due?: string;
 	completed?: string;
+	tags: string[];
 }
 
 function extractDate(body: string, marker: string): string | undefined {
@@ -61,6 +65,7 @@ export function parseTaskLine(raw: string): ParsedLine | null {
 		scheduled: extractDate(body, MARKERS.scheduled),
 		due: extractDate(body, MARKERS.due),
 		completed: extractDate(body, MARKERS.done),
+		tags: [...body.matchAll(TAG_RE)].map((m) => m[1] ?? ''),
 	};
 }
 
@@ -77,4 +82,21 @@ export function setTaskStatus(
 	const cleaned = body.replace(DONE_RE, '').trimEnd();
 	const done = status === 'done' ? ` ${MARKERS.done} ${today}` : '';
 	return `${head}${STATUS_CHAR[status]}${mid}${cleaned}${done}`;
+}
+
+function tagPattern(tag: string): RegExp {
+	// '-' must stay unescaped: the 'u' flag rejects an escaped '-' outside a class
+	const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	// Tags are case-insensitive in Obsidian; stop where the tag would continue
+	return new RegExp(`(^|\\s)#${escaped}(?!${TAG_CHARS})`, 'giu');
+}
+
+/** Replaces every occurrence of `#from` in the line with `#to` */
+export function replaceTag(line: string, from: string, to: string): string {
+	return line.replace(tagPattern(from), `$1#${to}`);
+}
+
+/** Removes `#tag` from task text, e.g. when the tag is shown as a label instead */
+export function stripTag(text: string, tag: string): string {
+	return text.replace(tagPattern(tag), '$1').replace(/\s{2,}/g, ' ').trim();
 }

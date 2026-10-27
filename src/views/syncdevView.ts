@@ -3,6 +3,8 @@ import { SYNCDEV_ICON } from '../icon';
 import type SyncDevPlugin from '../main';
 import { CalendarPanel } from './calendarPanel';
 import { KanbanPanel } from './kanbanPanel';
+import { ProjectFilter } from './projectFilter';
+import { RoadmapPanel } from './roadmapPanel';
 
 export const SYNCDEV_VIEW_TYPE = 'syncdev';
 
@@ -20,20 +22,6 @@ interface SyncDevViewState extends Record<string, unknown> {
 
 function isTab(value: unknown): value is SyncDevTab {
 	return TABS.some((t) => t.id === value);
-}
-
-/** Placeholder until the roadmap tab is designed */
-class RoadmapPanel extends Component {
-	constructor(private containerEl: HTMLElement) {
-		super();
-	}
-
-	onload(): void {
-		this.containerEl.createDiv({
-			cls: 'syncdev-empty',
-			text: 'Roadmap is coming soon',
-		});
-	}
 }
 
 /** One main-area tab holding the kanban, calendar and roadmap panels */
@@ -89,6 +77,17 @@ export class SyncDevView extends ItemView {
 			});
 			this.tabEls.set(id, el);
 		}
+		// Actions shown on every tab
+		const actions = bar.createDiv({ cls: 'syncdev-tab-actions' });
+		const add = actions.createEl('button', { cls: 'syncdev-filter-button' });
+		setIcon(add.createSpan({ cls: 'syncdev-tab-icon' }), 'folder-plus');
+		add.createSpan({ text: 'New project' });
+		add.addEventListener('click', () => {
+			// Don't keep focus here; the modal hands focus back on close
+			add.blur();
+			this.plugin.promptNewProject();
+		});
+		this.addChild(new ProjectFilter(this.plugin, actions));
 		this.panelEl = root.createDiv({ cls: 'syncdev-panel' });
 
 		this.showTab(this.tab, true);
@@ -115,7 +114,7 @@ export class SyncDevView extends ItemView {
 			case 'calendar':
 				return new CalendarPanel(this.plugin, this.panelEl);
 			case 'roadmap':
-				return new RoadmapPanel(this.panelEl);
+				return new RoadmapPanel(this.plugin, this.panelEl);
 		}
 	}
 }

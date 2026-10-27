@@ -17,7 +17,8 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 | 1.1 | Backlog를 메인 영역 전용 탭으로 열기 | ✅ 완료 |
 | 1.2 | Backlog를 Todo / In progress / Done 보드로, 드래그로 상태 변경 | ✅ 완료 |
 | 2 | Calendar 뷰 (월간 그리드, 날짜별 task 개수, 날짜 클릭 시 그날 task) | ✅ 완료 |
-| 2.1 | 하나의 SyncDev 뷰에 Kanban / Calendar / Roadmap 탭 | ✅ 완료 (Roadmap 내용 미정) |
+| 2.1 | 하나의 SyncDev 뷰에 Kanban / Calendar / Roadmap 탭 | ✅ 완료 |
+| 2.2 | 프로젝트(폴더 + 태그), 공용 프로젝트 필터, Roadmap 탭 | ✅ 완료 |
 | 3 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 4 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
 
@@ -58,10 +59,22 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 - 리본 아이콘 하나(Open SyncDev), 명령 ID `open-backlog`/`open-calendar` 유지(이름만 Open kanban), `open-roadmap` 추가
 - 이전 view type(`syncdev-backlog`, `syncdev-calendar`)으로 저장된 탭은 열리지 않으니 닫고 다시 열기
 
+### 2.2단계에 들어간 것
+
+- 프로젝트 = `SyncDev/`(설정 가능) 바로 아래 폴더. 소속: 프로젝트 폴더 안 노트의 task, 또는 줄에 프로젝트 태그가 있는 task
+- 태그 = 폴더 이름(공백 → `-`, 태그에 못 쓰는 문자 제거), 대소문자 무시. 폴더 이름과 일치하는 태그만 프로젝트로 인정
+- `core/projects.ts`: `ProjectRegistry`(폴더 목록 캐시, 소속 판정, 필터, 이름 해시 기반 색), 폴더 생성/삭제/이름 변경 시 갱신
+- 폴더 이름 변경 시 확인 모달 후 task 줄의 태그 일괄 변경(`TaskWriter.renameTag`), 숨김 목록도 새 이름으로
+- 탭 바 오른쪽 프로젝트 필터(드롭다운 + 체크박스, "No project" 포함): Kanban, Calendar, Roadmap 공용, 설정에 저장
+- task 행: 프로젝트 태그를 본문에서 빼고 색 라벨로 표시. Calendar 칸: 프로젝트 색 점
+- Roadmap 탭: 프로젝트 카드(진행률 바, todo/in progress/done 개수, 미완료 task 목록), New project 버튼과 명령
+- `AddTaskModal` → 범용 `PromptModal`
+
 ## 남은 이슈 / 메모
 
 - 저장소: `obsidian-star-graph` fork 안에 `star`(star-graph)와 `syncdev`가 브랜치로 공존. 공개 배포 전에 별도 저장소로 분리 필요 (빈 저장소 생성 후 `git push <remote> syncdev:master`). 지금은 보류
 - 폴더명(`obsidian-star-graph`)과 plugin id(`syncdev`)가 다름. 브랜치를 바꾸면 Obsidian에서 플러그인을 다시 활성화해야 함
 - 패키지 매니저는 pnpm. 셸 PATH에 pnpm이 없으면 `corepack pnpm <cmd>`
-- lint warning 6개: 설정 placeholder sentence case 3개와 'SyncDev' 이름 2개(의도된 값), `getSettingDefinitions` 권고 1개
+- lint warning 7개: 설정 placeholder sentence case 4개와 'SyncDev' 이름 2개(의도된 값), `getSettingDefinitions` 권고 1개
 - Obsidian 안에서 실제 동작 검증은 아직 안 함 (빌드, lint, 파서 스모크 테스트만 통과)
+- 설정의 Include folders를 지정하면 프로젝트 폴더 안 task도 그 범위에 들어가야 인덱싱됨

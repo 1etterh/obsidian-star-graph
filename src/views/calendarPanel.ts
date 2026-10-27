@@ -47,6 +47,9 @@ export class CalendarPanel extends Component {
 		this.registerEvent(
 			this.plugin.index.on('updated', () => void this.render()),
 		);
+		this.registerEvent(
+			this.plugin.projects.on('changed', () => void this.render()),
+		);
 		void this.render();
 	}
 
@@ -81,7 +84,7 @@ export class CalendarPanel extends Component {
 		const groups = new Map<string, Task[]>();
 		for (const task of this.plugin.index.all()) {
 			const date = calendarDate(task);
-			if (!date) continue;
+			if (!date || !this.plugin.projects.isVisible(task)) continue;
 			const list = groups.get(date) ?? [];
 			list.push(task);
 			groups.set(date, list);
@@ -129,6 +132,7 @@ export class CalendarPanel extends Component {
 			if (done > 0) {
 				counts.createSpan({ cls: 'syncdev-badge is-done', text: `✓${done}` });
 			}
+			this.renderProjectDots(cell, tasks);
 
 			cell.addEventListener('click', () => {
 				this.selected = date;
@@ -168,6 +172,20 @@ export class CalendarPanel extends Component {
 		this.dayListEl = panel.createDiv({ cls: 'syncdev-list' });
 	}
 
+	/** One colored dot per project that has tasks on this day */
+	private renderProjectDots(cell: HTMLElement, tasks: Task[]): void {
+		const seen = new Set<string>();
+		const dots = cell.createDiv({ cls: 'syncdev-cell-dots' });
+		for (const task of tasks) {
+			const project = this.plugin.projects.projectOf(task);
+			if (!project || seen.has(project.name)) continue;
+			seen.add(project.name);
+			dots
+				.createSpan({ cls: 'syncdev-project-dot', attr: { 'aria-label': project.name } })
+				.setCssProps({ '--syncdev-project-color': `var(${project.color})` });
+		}
+	}
+
 	private async renderDayList(tasks: Task[]): Promise<void> {
 		// Markdown rendering is async; drop renders superseded by a newer one
 		const token = ++this.renderToken;
@@ -182,7 +200,14 @@ export class CalendarPanel extends Component {
 			list.createDiv({ cls: 'syncdev-empty', text: 'No tasks' });
 		}
 		for (const task of sorted) {
-			await renderTaskRow(this.plugin.app, list, task, component, this.rowHandlers);
+			await renderTaskRow(
+				this.plugin.app,
+				list,
+				task,
+				component,
+				this.rowHandlers,
+				this.plugin.projects.projectOf(task),
+			);
 			if (token !== this.renderToken) {
 				this.removeChild(component);
 				return;

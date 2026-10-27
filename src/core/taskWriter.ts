@@ -2,7 +2,7 @@ import { App, moment, Notice } from 'obsidian';
 import type { SyncDevSettings } from '../settings';
 import type { Task, TaskStatus } from '../types';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
-import { MARKERS, setTaskStatus } from './parser';
+import { MARKERS, replaceTag, setTaskStatus } from './parser';
 
 export class TaskWriter {
 	constructor(
@@ -55,5 +55,27 @@ export class TaskWriter {
 			if (data === '') return `${line}\n`;
 			return data.endsWith('\n') ? `${data}${line}\n` : `${data}\n${line}\n`;
 		});
+	}
+
+	/** Rewrites `#from` to `#to` on the given task lines, one write per file */
+	async renameTag(tasks: Task[], from: string, to: string): Promise<void> {
+		const byPath = new Map<string, Set<number>>();
+		for (const task of tasks) {
+			const lines = byPath.get(task.path) ?? new Set<number>();
+			lines.add(task.line);
+			byPath.set(task.path, lines);
+		}
+		for (const [path, lineNumbers] of byPath) {
+			const file = this.app.vault.getFileByPath(path);
+			if (!file) continue;
+			await this.app.vault.process(file, (data) => {
+				const lines = data.split('\n');
+				for (const n of lineNumbers) {
+					const line = lines[n];
+					if (line !== undefined) lines[n] = replaceTag(line, from, to);
+				}
+				return lines.join('\n');
+			});
+		}
 	}
 }
