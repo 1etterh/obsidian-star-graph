@@ -1,5 +1,5 @@
 import { App, Events, normalizePath, Notice, TFile, TFolder } from 'obsidian';
-import type { SyncDevSettings } from '../settings';
+import { DEFAULT_PROJECT_ROOT, type SyncDevSettings } from '../settings';
 import type { Project, Task } from '../types';
 
 const COLORS = [
@@ -20,6 +20,9 @@ export function projectTag(name: string): string {
 		.replace(/\s+/g, '-')
 		.replace(/[^\p{L}\p{N}_-]/gu, '');
 }
+
+/** Code block that renders the project list in the hub note */
+export const PROJECT_LIST_BLOCK = 'syncdev-projects';
 
 /** Characters that cannot appear in a folder name become '-' */
 function cleanName(name: string): string {
@@ -50,7 +53,7 @@ export class ProjectRegistry extends Events {
 	}
 
 	root(): string {
-		return normalizePath(this.getSettings().projectRoot.trim() || 'SyncDev');
+		return normalizePath(this.getSettings().projectRoot.trim() || DEFAULT_PROJECT_ROOT);
 	}
 
 	list(): Project[] {
@@ -124,11 +127,34 @@ export class ProjectRegistry extends Events {
 		const clean = cleanName(name);
 		const root = this.root();
 		const folder = normalizePath(`${root}/${clean}`);
-		if (!this.app.vault.getFolderByPath(root)) {
-			await this.app.vault.createFolder(root);
+		// Create each missing level, e.g. SyncDev/ then SyncDev/projects/
+		const parts = root.split('/');
+		for (let i = 1; i <= parts.length; i++) {
+			const path = parts.slice(0, i).join('/');
+			if (!this.app.vault.getFolderByPath(path)) await this.app.vault.createFolder(path);
 		}
 		await this.app.vault.createFolder(folder);
 		return this.app.vault.create(`${folder}/index.md`, '');
+	}
+
+	/** The project's index note, created if it was deleted */
+	async indexNote(project: Project): Promise<TFile> {
+		const path = `${project.folder}/index.md`;
+		return this.app.vault.getFileByPath(path) ?? this.app.vault.create(path, '');
+	}
+
+	/** Hub note next to the project root, e.g. SyncDev/index.md for SyncDev/projects */
+	hubPath(): string {
+		const parts = this.root().split('/');
+		const folder = parts.length > 1 ? parts.slice(0, -1).join('/') : parts.join('/');
+		return normalizePath(`${folder}/index.md`);
+	}
+
+	/** Creates the hub note with the project list block, unless it already exists */
+	async ensureHub(): Promise<void> {
+		const path = this.hubPath();
+		if (this.app.vault.getAbstractFileByPath(path)) return;
+		await this.app.vault.create(path, `\`\`\`${PROJECT_LIST_BLOCK}\n\`\`\`\n`);
 	}
 
 	/** Call after the folder tree or the filter changed */

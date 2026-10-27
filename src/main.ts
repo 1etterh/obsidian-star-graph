@@ -1,10 +1,13 @@
 import { debounce, MarkdownView, Plugin, TFile } from 'obsidian';
-import { ProjectRegistry } from './core/projects';
+import { PROJECT_LIST_BLOCK, ProjectRegistry } from './core/projects';
+import { StormingService } from './core/storming/service';
 import { TaskIndex } from './core/taskIndex';
 import { registerIcons, SYNCDEV_ICON } from './icon';
 import { TaskWriter } from './core/taskWriter';
 import { registerProjectEvents } from './projectEvents';
+import { registerStormingEvents } from './stormingEvents';
 import { DEFAULT_SETTINGS, SyncDevSettings, SyncDevSettingTab } from './settings';
+import { ProjectListBlock } from './views/projectListBlock';
 import { PromptModal } from './views/promptModal';
 import { SYNCDEV_VIEW_TYPE, SyncDevTab, SyncDevView } from './views/syncdevView';
 
@@ -13,6 +16,7 @@ export default class SyncDevPlugin extends Plugin {
 	index!: TaskIndex;
 	writer!: TaskWriter;
 	projects!: ProjectRegistry;
+	storming!: StormingService;
 
 	// Folder settings change the index scope, so rebuild once typing settles
 	private rebuildSoon = debounce(() => void this.index.rebuild(), 500, true);
@@ -22,8 +26,12 @@ export default class SyncDevPlugin extends Plugin {
 		this.index = new TaskIndex(this.app, () => this.settings);
 		this.writer = new TaskWriter(this.app, () => this.settings);
 		this.projects = new ProjectRegistry(this.app, () => this.settings);
+		this.storming = new StormingService(this.app, this.projects, this.writer);
 
 		registerIcons();
+		this.registerMarkdownCodeBlockProcessor(PROJECT_LIST_BLOCK, (_source, el, ctx) => {
+			ctx.addChild(new ProjectListBlock(el, this));
+		});
 		this.registerView(
 			SYNCDEV_VIEW_TYPE,
 			(leaf) => new SyncDevView(leaf, this),
@@ -74,6 +82,7 @@ export default class SyncDevPlugin extends Plugin {
 			void this.index.rebuild();
 			this.projects.refresh();
 			registerProjectEvents(this);
+			registerStormingEvents(this);
 			this.registerEvent(
 				this.app.metadataCache.on('changed', (file, data, cache) =>
 					this.index.onChanged(file, data, cache),
@@ -119,7 +128,10 @@ export default class SyncDevPlugin extends Plugin {
 			'Create',
 			async (name) => {
 				const index = await this.projects.create(name);
-				if (index) await this.openAndFocus(index);
+				if (!index) return;
+				if (index.parent) await this.storming.createTemplate(index.parent.path);
+				await this.projects.ensureHub();
+				await this.openAndFocus(index);
 			},
 			(name) => this.projects.validateName(name),
 		).open();

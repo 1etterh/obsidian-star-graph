@@ -19,12 +19,14 @@ export interface SyncDevSettings {
 	addCreatedDate: boolean;
 }
 
+export const DEFAULT_PROJECT_ROOT = 'SyncDev/projects';
+
 export const DEFAULT_SETTINGS: SyncDevSettings = {
 	includeFolders: [],
 	excludeFolders: [],
 	defaultSort: 'newest',
 	showDone: true,
-	projectRoot: 'SyncDev',
+	projectRoot: DEFAULT_PROJECT_ROOT,
 	hiddenProjects: [],
 	showUnassigned: true,
 	dailyFolder: '',
@@ -110,7 +112,7 @@ export class SyncDevSettingTab extends PluginSettingTab {
 			.setDesc('Each folder inside it is a project. Tag a task with the folder name to assign it.')
 			.addText((text) =>
 				text
-					.setPlaceholder('SyncDev')
+					.setPlaceholder(DEFAULT_PROJECT_ROOT)
 					.setValue(settings.projectRoot)
 					.onChange(async (value) => {
 						settings.projectRoot = value.trim();

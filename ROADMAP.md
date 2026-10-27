@@ -19,8 +19,11 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 | 2 | Calendar 뷰 (월간 그리드, 날짜별 task 개수, 날짜 클릭 시 그날 task) | ✅ 완료 |
 | 2.1 | 하나의 SyncDev 뷰에 Kanban / Calendar / Roadmap 탭 | ✅ 완료 |
 | 2.2 | 프로젝트(폴더 + 태그), 공용 프로젝트 필터, Roadmap 탭 | ✅ 완료 |
-| 3 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
-| 4 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
+| 3 | 이벤트 스토밍(Canvas) 연동: 템플릿, 카드 분류·집계, 카드 → task | ✅ 완료 |
+| 3.1 | 프로젝트 허브(`SyncDev/index.md`)와 공용 프로젝트 메뉴 | ✅ 완료 |
+| 3.2 | 프로젝트 메뉴에 이름 변경·삭제 추가 | 보류 (구체화할 때 구현) |
+| 4 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
+| 5 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
 
 ### 1단계에 들어간 것
 
@@ -61,7 +64,7 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 
 ### 2.2단계에 들어간 것
 
-- 프로젝트 = `SyncDev/`(설정 가능) 바로 아래 폴더. 소속: 프로젝트 폴더 안 노트의 task, 또는 줄에 프로젝트 태그가 있는 task
+- 프로젝트 = `SyncDev/projects/`(설정 가능, 처음엔 `SyncDev/`였음) 바로 아래 폴더. 소속: 프로젝트 폴더 안 노트의 task, 또는 줄에 프로젝트 태그가 있는 task
 - 태그 = 폴더 이름(공백 → `-`, 태그에 못 쓰는 문자 제거), 대소문자 무시. 폴더 이름과 일치하는 태그만 프로젝트로 인정
 - `core/projects.ts`: `ProjectRegistry`(폴더 목록 캐시, 소속 판정, 필터, 이름 해시 기반 색), 폴더 생성/삭제/이름 변경 시 갱신
 - 폴더 이름 변경 시 확인 모달 후 task 줄의 태그 일괄 변경(`TaskWriter.renameTag`), 숨김 목록도 새 이름으로
@@ -70,11 +73,38 @@ Calendar + Task planner 스타일의 task 관리 플러그인. 브랜치: `syncd
 - Roadmap 탭: 프로젝트 카드(진행률 바, todo/in progress/done 개수, 미완료 task 목록), New project 버튼과 명령
 - `AddTaskModal` → 범용 `PromptModal`
 
+### 3단계에 들어간 것
+
+- 결정: 프로젝트 식별은 이름 태그 유지(B안), 스토밍 도구는 Canvas(JSON Canvas 공개 형식이라 연동 가능, 협업·확장 고려)
+- `core/storming/model.ts`: 도구 독립 모델(StormBoard/StormCard, 카드 종류 8개와 hex 색 규칙)
+- `core/storming/canvasAdapter.ts`: `.canvas` → 모델. 색(hex 또는 Obsidian 프리셋 1~6)으로 종류 판정, 가장 안쪽 그룹 = bounded context, `Legend` 그룹 제외
+- New project 시 색 범례가 든 `event-storming.canvas` 생성
+- 카드 → task: 오늘 데일리 노트에 `- [ ] 카드 첫 줄 #프로젝트 [[캔버스]] ➕ 날짜 ^sd-xxxxxx`, 카드에는 `→ [[데일리#^sd-xxxxxx|task]]` 추가. `^sd-` 링크가 있는 카드는 다시 만들지 않음
+- 캔버스 카드 우클릭 / 다중 선택 우클릭 "Create task", 명령 "Create tasks from command cards in this canvas", Roadmap 카드의 일괄 버튼
+- 열린 캔버스는 내부 node API(`setText`, `requestSave`)로 수정, 닫혀 있으면 파일 직접 수정
+- Roadmap 카드: 캔버스 링크, 이벤트·커맨드·애그리게잇·컨텍스트 개수
+- task 행의 내부 링크 클릭 시 새 탭에서 열기, task 텍스트에서 끝의 블록 id 숨김
+
+### 3.1단계에 들어간 것
+
+- 프로젝트 기본 위치를 `SyncDev/projects/`로 변경, 없는 상위 폴더는 단계별로 생성
+- 허브 노트: 첫 프로젝트 생성 시 프로젝트 루트의 상위 폴더에 `index.md`(```` ```syncdev-projects``` ```` 코드 블록) 자동 생성. 코드 블록은 프로젝트 목록(색, 진행률, 미완료 개수, 캔버스 링크)과 New project 버튼으로 렌더링, task·폴더·캔버스 변경 시 갱신
+- 공용 프로젝트 메뉴(`views/projectMenu.ts`): New event storming canvas(이름 검증), Create tasks from commands, Open index note, Show in roadmap, Hide/Show in filter
+- 메뉴 진입점 3곳: 파일 탐색기 프로젝트 폴더 우클릭(`file-menu`, 공개 API), 허브 목록 행 우클릭, Roadmap 카드 우클릭
+- task 출처와 데일리 노트 열기는 새 탭에서 (SyncDev 탭 유지)
+- 진행률 계산을 `core/projectStats.ts`로 공유
+
+### 3.2단계 메모 (보류)
+
+- 이름 변경: 폴더 이름 변경 + 기존 태그 일괄 수정 확인 창(`projectEvents.ts`)과 연결
+- 삭제: 실수 방지 확인 필요. 폴더만 지울지, 태그가 붙은 task는 어떻게 할지 결정 필요
+
 ## 남은 이슈 / 메모
 
 - 저장소: `obsidian-star-graph` fork 안에 `star`(star-graph)와 `syncdev`가 브랜치로 공존. 공개 배포 전에 별도 저장소로 분리 필요 (빈 저장소 생성 후 `git push <remote> syncdev:master`). 지금은 보류
 - 폴더명(`obsidian-star-graph`)과 plugin id(`syncdev`)가 다름. 브랜치를 바꾸면 Obsidian에서 플러그인을 다시 활성화해야 함
 - 패키지 매니저는 pnpm. 셸 PATH에 pnpm이 없으면 `corepack pnpm <cmd>`
-- lint warning 7개: 설정 placeholder sentence case 4개와 'SyncDev' 이름 2개(의도된 값), `getSettingDefinitions` 권고 1개
+- lint warning 8개: 설정 placeholder sentence case 4개, 'SyncDev' 이름 2개, 명령 이름의 도메인 용어 'command' 1개(의도된 값), `getSettingDefinitions` 권고 1개
 - Obsidian 안에서 실제 동작 검증은 아직 안 함 (빌드, lint, 파서 스모크 테스트만 통과)
 - 설정의 Include folders를 지정하면 프로젝트 폴더 안 task도 그 범위에 들어가야 인덱싱됨
+- 캔버스 우클릭 메뉴(`canvas:node-menu`, `canvas:selection-menu`)와 node API는 비공개 API. Obsidian 업데이트 시 깨질 수 있음

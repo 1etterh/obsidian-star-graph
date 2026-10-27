@@ -1,5 +1,6 @@
 import { TAbstractFile, TFolder } from 'obsidian';
 import { projectTag } from './core/projects';
+import { addProjectMenuItems } from './views/projectMenu';
 import type SyncDevPlugin from './main';
 import { ConfirmModal } from './views/confirmModal';
 
@@ -14,6 +15,17 @@ export function registerProjectEvents(plugin: SyncDevPlugin): void {
 		const root = projects.root();
 		return path === root || parentOf(path) === root;
 	};
+
+	// Right-click on a project folder in the file explorer
+	plugin.registerEvent(
+		app.workspace.on('file-menu', (menu, file) => {
+			if (!(file instanceof TFolder)) return;
+			const project = projects.list().find((p) => p.folder === file.path);
+			if (!project) return;
+			menu.addSeparator();
+			addProjectMenuItems(menu, plugin, project);
+		}),
+	);
 
 	plugin.registerEvent(
 		app.vault.on('create', (file) => {

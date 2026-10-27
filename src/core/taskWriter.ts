@@ -1,4 +1,4 @@
-import { App, moment, Notice } from 'obsidian';
+import { App, moment, Notice, TFile } from 'obsidian';
 import type { SyncDevSettings } from '../settings';
 import type { Task, TaskStatus } from '../types';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
@@ -41,16 +41,24 @@ export class TaskWriter {
 
 	/** Appends a new task to the daily note of `date` (today by default) */
 	async addToDaily(text: string, date: moment.Moment = moment()): Promise<void> {
-		const settings = this.getSettings();
-		const file = await getOrCreateDailyNote(
+		await this.appendTask(await this.dailyNote(date), text);
+	}
+
+	dailyNote(date: moment.Moment = moment()): Promise<TFile> {
+		return getOrCreateDailyNote(
 			this.app,
-			getDailyNoteConfig(this.app, settings),
+			getDailyNoteConfig(this.app, this.getSettings()),
 			date,
 		);
-		const created = settings.addCreatedDate
+	}
+
+	/** Appends `- [ ] text` to the file; the block id, if any, goes last */
+	async appendTask(file: TFile, text: string, blockId?: string): Promise<void> {
+		const created = this.getSettings().addCreatedDate
 			? ` ${MARKERS.created} ${moment().format(DATE_FORMAT)}`
 			: '';
-		const line = `- [ ] ${text.trim()}${created}`;
+		const block = blockId ? ` ^${blockId}` : '';
+		const line = `- [ ] ${text.trim()}${created}${block}`;
 		await this.app.vault.process(file, (data) => {
 			if (data === '') return `${line}\n`;
 			return data.endsWith('\n') ? `${data}${line}\n` : `${data}\n${line}\n`;

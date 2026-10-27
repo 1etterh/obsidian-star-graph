@@ -18,11 +18,12 @@ export interface TaskRowHandlers {
 	dragEnd?(): void;
 }
 
-/** Opens the note containing the task, scrolled to its line */
+/** Opens the note containing the task in a new tab, scrolled to its line */
 export async function openTask(app: App, task: Task): Promise<void> {
 	const file = app.vault.getFileByPath(task.path);
 	if (!file) return;
-	await app.workspace.getLeaf(false).openFile(file, {
+	// A new tab, so the SyncDev view stays open
+	await app.workspace.getLeaf('tab').openFile(file, {
 		eState: { line: task.line },
 	});
 }
@@ -88,6 +89,14 @@ export async function renderTaskRow(
 	// The project label replaces the tag in the text
 	const text = project ? stripTag(task.text, project.tag) : task.text;
 	await MarkdownRenderer.render(app, text, textEl, task.path, component);
+	// Rendered internal links are not wired up outside the editor; open them in a new tab
+	textEl.addEventListener('click', (evt) => {
+		const link = (evt.target as HTMLElement).closest('a.internal-link');
+		const href = link?.getAttribute('data-href') ?? link?.getAttribute('href');
+		if (!href) return;
+		evt.preventDefault();
+		void app.workspace.openLinkText(href, task.path, 'tab');
+	});
 
 	const meta = body.createDiv({ cls: 'syncdev-task-meta' });
 	if (project) renderProjectLabel(meta, project);

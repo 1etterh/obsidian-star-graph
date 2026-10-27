@@ -1,7 +1,10 @@
 import { Component, setIcon } from 'obsidian';
+import { groupByProject, statsOf } from '../core/projectStats';
 import { sortTasks } from '../core/sort';
+import { countKinds } from '../core/storming/model';
 import type SyncDevPlugin from '../main';
 import type { Project, Task } from '../types';
+import { showProjectMenu } from './projectMenu';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
 /** One card per visible project: progress and its open tasks */
@@ -31,19 +34,10 @@ export class RoadmapPanel extends Component {
 		this.registerEvent(
 			this.plugin.projects.on('changed', () => void this.render()),
 		);
+		this.registerEvent(
+			this.plugin.storming.on('changed', () => void this.render()),
+		);
 		void this.render();
-	}
-
-	private groupByProject(): Map<string, Task[]> {
-		const groups = new Map<string, Task[]>();
-		for (const task of this.plugin.index.all()) {
-			const project = this.plugin.projects.projectOf(task);
-			if (!project) continue;
-			const list = groups.get(project.name) ?? [];
-			list.push(task);
-			groups.set(project.name, list);
-		}
-		return groups;
 	}
 
 	private async render(): Promise<void> {
@@ -51,7 +45,7 @@ export class RoadmapPanel extends Component {
 		const token = ++this.renderToken;
 		const component = this.addChild(new Component());
 		const { projects, settings } = this.plugin;
-		const groups = this.groupByProject();
+		const groups = groupByProject(this.plugin.index.all(), projects);
 		const visible = projects
 			.list()
 			.filter((p) => !settings.hiddenProjects.includes(p.name));
@@ -87,12 +81,10 @@ export class RoadmapPanel extends Component {
 		component: Component,
 	): Promise<void> {
 		const card = parent.createDiv({ cls: 'syncdev-project-card' });
+		card.addEventListener('contextmenu', (evt) => showProjectMenu(evt, this.plugin, project));
 		card.setCssProps({ '--syncdev-project-color': `var(${project.color})` });
 
-		const done = tasks.filter((t) => t.status === 'done').length;
-		const doing = tasks.filter((t) => t.status === 'doing').length;
-		const todo = tasks.length - done - doing;
-		const percent = tasks.length === 0 ? 0 : Math.round((done / tasks.length) * 100);
+		const { todo, doing, done, percent } = statsOf(tasks);
 
 		const header = card.createDiv({ cls: 'syncdev-project-header' });
 		header.createSpan({ cls: 'syncdev-project-dot' });
@@ -114,6 +106,8 @@ export class RoadmapPanel extends Component {
 			text: `${percent}% · ${todo} todo · ${doing} in progress · ${done} done`,
 		});
 
+		await this.renderStorming(card, project);
+
 		// In progress first, then todo
 		const open = [
 			...sortTasks(tasks.filter((t) => t.status === 'doing'), 'oldest'),
@@ -130,6 +124,40 @@ export class RoadmapPanel extends Component {
 				this.rowHandlers,
 				project,
 			);
+		}
+	}
+
+	/** Card counts from the project's canvases, with a shortcut to turn commands into tasks */
+	private async renderStorming(card: HTMLElement, project: Project): Promise<void> {
+		const { storming, app } = this.plugin;
+		const files = storming.canvasesOf(project);
+		if (files.length === 0) return;
+		const boards = await storming.boardsOf(project);
+		const counts = countKinds(boards);
+		const contexts = new Set(boards.flatMap((b) => b.contexts)).size;
+		const pending = boards
+			.flatMap((b) => b.cards)
+			.filter((c) => c.kind === 'command' && !c.hasTask).length;
+
+		const row = card.createDiv({ cls: 'syncdev-storming' });
+		for (const file of files) {
+			const link = row.createEl('a', { cls: 'syncdev-source', text: file.basename });
+			link.addEventListener('click', () => void app.workspace.getLeaf('tab').openFile(file));
+		}
+		row.createSpan({
+			text:
+				`${counts.event} events · ${counts.command} commands · ` +
+				`${counts.aggregate} aggregates · ${contexts} contexts`,
+		});
+		if (pending > 0) {
+			const button = row.createEl('button', {
+				cls: 'syncdev-filter-button',
+				text: `Create ${pending} task(s) from commands`,
+			});
+			button.addEventListener('click', () => {
+				button.disabled = true;
+				void storming.createCommandTasks(project);
+			});
 		}
 	}
 

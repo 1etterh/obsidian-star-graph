@@ -226,7 +226,7 @@ export class CalendarPanel extends Component {
 			getDailyNoteConfig(this.plugin.app, this.plugin.settings),
 			date,
 		);
-		await this.plugin.app.workspace.getLeaf(false).openFile(file);
+		await this.plugin.app.workspace.getLeaf('tab').openFile(file);
 	}
 
 	private rowHandlers: TaskRowHandlers = {

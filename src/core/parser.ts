@@ -55,6 +55,8 @@ export function parseTaskLine(raw: string): ParsedLine | null {
 				acc.replace(new RegExp(`${marker}\\uFE0F?\\s*${DATE}`, 'gu'), ''),
 			body,
 		)
+		// A trailing block id (^abc) is a link target, not part of the text
+		.replace(/\s\^[A-Za-z0-9-]+\s*$/, '')
 		.replace(/\s{2,}/g, ' ')
 		.trim();
 
