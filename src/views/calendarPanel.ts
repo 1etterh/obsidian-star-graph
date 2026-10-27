@@ -3,7 +3,6 @@ import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from '../core/d
 import { sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { Task } from '../types';
-import { assignProject } from './assignProjectModal';
 import { createTaskComposer } from './taskComposer';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
@@ -49,9 +48,6 @@ export class CalendarPanel extends Component {
 		this.registerEvent(
 			this.plugin.index.on('updated', () => void this.render()),
 		);
-		this.registerEvent(
-			this.plugin.projects.on('changed', () => void this.render()),
-		);
 		void this.render();
 	}
 
@@ -86,7 +82,7 @@ export class CalendarPanel extends Component {
 		const groups = new Map<string, Task[]>();
 		for (const task of this.plugin.index.all()) {
 			const date = calendarDate(task);
-			if (!date || !this.plugin.projects.isVisible(task)) continue;
+			if (!date) continue;
 			const list = groups.get(date) ?? [];
 			list.push(task);
 			groups.set(date, list);
@@ -134,7 +130,6 @@ export class CalendarPanel extends Component {
 			if (done > 0) {
 				counts.createSpan({ cls: 'syncdev-badge is-done', text: `✓${done}` });
 			}
-			this.renderProjectDots(cell, tasks);
 
 			cell.addEventListener('click', () => {
 				this.selected = date;
@@ -168,20 +163,6 @@ export class CalendarPanel extends Component {
 		this.dayListEl = panel.createDiv({ cls: 'syncdev-list' });
 	}
 
-	/** One colored dot per project that has tasks on this day */
-	private renderProjectDots(cell: HTMLElement, tasks: Task[]): void {
-		const seen = new Set<string>();
-		const dots = cell.createDiv({ cls: 'syncdev-cell-dots' });
-		for (const task of tasks) {
-			const project = this.plugin.projects.projectOf(task);
-			if (!project || seen.has(project.name)) continue;
-			seen.add(project.name);
-			dots
-				.createSpan({ cls: 'syncdev-project-dot', attr: { 'aria-label': project.name } })
-				.setCssProps({ '--syncdev-project-color': `var(${project.color})` });
-		}
-	}
-
 	private async renderDayList(tasks: Task[]): Promise<void> {
 		// Markdown rendering is async; drop renders superseded by a newer one
 		const token = ++this.renderToken;
@@ -202,7 +183,6 @@ export class CalendarPanel extends Component {
 				task,
 				component,
 				this.rowHandlers,
-				this.plugin.projects.projectOf(task),
 			);
 			if (token !== this.renderToken) {
 				this.removeChild(component);
@@ -229,6 +209,5 @@ export class CalendarPanel extends Component {
 		toggle: (task) => void this.plugin.writer.toggle(task),
 		move: (task, column) => void this.plugin.writer.moveTo(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
-		assign: (task) => assignProject(this.plugin, task),
 	};
 }

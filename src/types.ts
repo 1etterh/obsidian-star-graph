@@ -17,22 +17,10 @@ export interface Task {
 	scheduled?: string;
 	due?: string;
 	completed?: string;
-	/** Tags on the line, without '#' */
-	tags: string[];
 	/** Trailing ^block id, used as a stable identity */
 	blockId?: string;
 	/** Date of the daily note this task lives in, if any */
 	dailyDate?: string;
 	/** Fallback sort key: file creation time (ms) */
 	fileCtime: number;
-}
-
-export interface Project {
-	/** Folder name, shown in the UI */
-	name: string;
-	folder: string;
-	/** Tag that assigns a task to this project, without '#' */
-	tag: string;
-	/** CSS color variable used to tell projects apart */
-	color: string;
 }

@@ -1,38 +1,33 @@
 import { App, moment, normalizePath, TFile } from 'obsidian';
 import type { Task } from '../types';
-import type { ProjectRegistry } from './projects';
 import type { StatusChange } from './statusDiff';
 
+const LOG_FOLDER = 'SyncDev/log';
+
 const TABLE_HEADER =
-	'| updatedAt | taskId | content | status | project |\n' +
-	'| --- | --- | --- | --- | --- |\n';
+	'| updatedAt | taskId | content | status |\n' +
+	'| --- | --- | --- | --- |\n';
 
 /**
  * Appends every task status change as a table row to a monthly log, e.g. SyncDev/log/2026-10.md.
  * Append-only, so syncing two devices rarely conflicts.
  */
 export class StatusLog {
-	constructor(
-		private app: App,
-		private projects: ProjectRegistry,
-	) {}
-
-	folder(): string {
-		const hub = this.projects.hubPath();
-		const parent = hub.split('/').slice(0, -1).join('/');
-		return normalizePath(parent ? `${parent}/log` : 'log');
-	}
+	constructor(private app: App) {}
 
 	async record(changes: StatusChange[]): Promise<void> {
 		const now = moment();
-		const path = normalizePath(`${this.folder()}/${now.format('YYYY-MM')}.md`);
+		const path = normalizePath(`${LOG_FOLDER}/${now.format('YYYY-MM')}.md`);
 		const rows = changes.map((c) => this.row(c.after, path, now));
 		const file = await this.ensureFile(path);
 		await this.app.vault.process(file, (data) => {
 			const text = data === '' || data.endsWith('\n') ? data : `${data}\n`;
-			// Rows can only be appended directly under a table; start one if the file ends otherwise
-			const last = text.trimEnd().split('\n').pop() ?? '';
-			const head = last.startsWith('|') ? '' : `${text.trim() ? '\n' : ''}${TABLE_HEADER}`;
+			// Rows go directly under a table with the current columns; otherwise start a new one
+			const lines = text.trimEnd().split('\n');
+			const last = lines[lines.length - 1] ?? '';
+			const lastHeader = [...lines].reverse().find((l) => l.startsWith('| updatedAt'));
+			const continues = last.startsWith('|') && lastHeader === TABLE_HEADER.split('\n')[0];
+			const head = continues ? '' : `${text.trim() ? '\n' : ''}${TABLE_HEADER}`;
 			return `${text}${head}${rows.join('\n')}\n`;
 		});
 	}
@@ -49,13 +44,11 @@ export class StatusLog {
 					alias,
 				)
 			: alias;
-		const project = this.projects.projectOf(task);
 		const cells = [
 			now.format('YYYY-MM-DD HH:mm'),
 			task.blockId ?? '—',
 			link,
 			task.status,
-			project?.name ?? '',
 		];
 		// A pipe inside a cell (e.g. a link alias) must be escaped in a table
 		return `| ${cells.map((c) => c.replace(/(?<!\\)\|/g, '\\|')).join(' | ')} |`;

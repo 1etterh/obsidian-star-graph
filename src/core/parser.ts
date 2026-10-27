@@ -16,9 +16,6 @@ const STATUS_CHAR: Record<TaskStatus, string> = {
 const TASK_RE = /^(\s*[-*+] \[)(.)(\]\s+)(.*)$/;
 const DATE = '(\\d{4}-\\d{2}-\\d{2})';
 const DONE_RE = new RegExp(`\\s*${MARKERS.done}\\uFE0F?\\s*${DATE}`, 'u');
-// Characters Obsidian allows in a tag
-export const TAG_CHARS = '[\\p{L}\\p{N}_\\-/]';
-const TAG_RE = new RegExp(`(?:^|\\s)#(${TAG_CHARS}+)`, 'gu');
 const BLOCK_ID_RE = /\s\^([A-Za-z0-9-]+)\s*$/;
 
 export interface ParsedLine {
@@ -28,7 +25,6 @@ export interface ParsedLine {
 	scheduled?: string;
 	due?: string;
 	completed?: string;
-	tags: string[];
 	blockId?: string;
 }
 
@@ -68,7 +64,6 @@ export function parseTaskLine(raw: string): ParsedLine | null {
 		scheduled: extractDate(body, MARKERS.scheduled),
 		due: extractDate(body, MARKERS.due),
 		completed: extractDate(body, MARKERS.done),
-		tags: [...body.matchAll(TAG_RE)].map((m) => m[1] ?? ''),
 		blockId: BLOCK_ID_RE.exec(body)?.[1],
 	};
 }
@@ -92,44 +87,6 @@ export function setTaskStatus(
 	const text = block ? cleaned.slice(0, block.index) : cleaned;
 	const done = status === 'done' && doneDate ? ` ${MARKERS.done} ${doneDate}` : '';
 	return `${head}${STATUS_CHAR[status]}${mid}${text}${done}${block ? block[0] : ''}`;
-}
-
-function tagPattern(tag: string): RegExp {
-	// '-' must stay unescaped: the 'u' flag rejects an escaped '-' outside a class
-	const escaped = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	// Tags are case-insensitive in Obsidian; stop where the tag would continue
-	return new RegExp(`(^|\\s)#${escaped}(?!${TAG_CHARS})`, 'giu');
-}
-
-/** Replaces every occurrence of `#from` in the line with `#to` */
-export function replaceTag(line: string, from: string, to: string): string {
-	return line.replace(tagPattern(from), `$1#${to}`);
-}
-
-/** Removes `#tag` from task text, e.g. when the tag is shown as a label instead */
-export function stripTag(text: string, tag: string): string {
-	return text.replace(tagPattern(tag), '$1').replace(/\s{2,}/g, ' ').trim();
-}
-
-// Where an added tag goes: before the first date marker or a trailing block id
-const TAIL_RE = new RegExp(
-	`\\s+(?:${Object.values(MARKERS).join('|')})\\uFE0F?\\s*\\d{4}-\\d{2}-\\d{2}|\\s+\\^[A-Za-z0-9-]+\\s*$`,
-	'u',
-);
-
-/** Removes `#remove` and/or adds `#add` on a task line, keeping dates and block id last */
-export function setLineTag(raw: string, remove?: string, add?: string): string {
-	const match = TASK_RE.exec(raw);
-	if (!match) return raw;
-	const [, head = '', status = ' ', mid = ''] = match;
-	let body = match[4] ?? '';
-	if (remove) body = body.replace(tagPattern(remove), '$1').replace(/\s{2,}/g, ' ').trim();
-	if (add) {
-		const tail = TAIL_RE.exec(body);
-		const at = tail ? tail.index : body.trimEnd().length;
-		body = `${body.slice(0, at).trimEnd()} #${add}${body.slice(at)}`;
-	}
-	return `${head}${status}${mid}${body}`;
 }
 
 /** Appends a block id unless the line already ends with one */

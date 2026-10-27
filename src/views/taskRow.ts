@@ -1,15 +1,12 @@
 import { App, Component, MarkdownRenderer, Menu, moment } from 'obsidian';
 import { DATE_FORMAT } from '../core/dailyNotes';
-import { stripTag } from '../core/parser';
 import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
-import type { Project, Task } from '../types';
+import type { Task } from '../types';
 
 export interface TaskRowHandlers {
 	toggle(task: Task): void;
 	move(task: Task, column: BoardColumn): void;
 	open(task: Task): void;
-	/** Shows "Assign to project…" in the menu when given */
-	assign?(task: Task): void;
 	/** Rows are draggable only when these are given */
 	dragStart?(task: Task): void;
 	dragEnd?(): void;
@@ -25,13 +22,6 @@ export async function openTask(app: App, task: Task): Promise<void> {
 	});
 }
 
-/** Shows the project as a colored label */
-export function renderProjectLabel(parent: HTMLElement, project: Project): void {
-	parent
-		.createSpan({ cls: 'syncdev-project', text: project.name })
-		.setCssProps({ '--syncdev-project-color': `var(${project.color})` });
-}
-
 /** Renders a task row; `component` owns the rendered markdown */
 export async function renderTaskRow(
 	app: App,
@@ -39,7 +29,6 @@ export async function renderTaskRow(
 	task: Task,
 	component: Component,
 	handlers: TaskRowHandlers,
-	project?: Project,
 ): Promise<void> {
 	const row = parent.createDiv({ cls: 'syncdev-task' });
 	row.toggleClass('is-done', task.status === 'done');
@@ -69,15 +58,6 @@ export async function renderTaskRow(
 					.onClick(() => handlers.move(task, column)),
 			);
 		}
-		if (handlers.assign) {
-			menu.addSeparator();
-			menu.addItem((item) =>
-				item
-					.setTitle('Assign to project…')
-					.setIcon('folder-input')
-					.onClick(() => handlers.assign?.(task)),
-			);
-		}
 		menu.showAtMouseEvent(evt);
 	});
 
@@ -93,9 +73,7 @@ export async function renderTaskRow(
 
 	const body = row.createDiv({ cls: 'syncdev-task-body' });
 	const textEl = body.createDiv({ cls: 'syncdev-task-text' });
-	// The project label replaces the tag in the text
-	const text = project ? stripTag(task.text, project.tag) : task.text;
-	await MarkdownRenderer.render(app, text, textEl, task.path, component);
+	await MarkdownRenderer.render(app, task.text, textEl, task.path, component);
 	// Rendered internal links are not wired up outside the editor; open them in a new tab
 	textEl.addEventListener('click', (evt) => {
 		const link = (evt.target as HTMLElement).closest('a.internal-link');
@@ -106,7 +84,6 @@ export async function renderTaskRow(
 	});
 
 	const meta = body.createDiv({ cls: 'syncdev-task-meta' });
-	if (project) renderProjectLabel(meta, project);
 	const source = meta.createEl('a', {
 		cls: 'syncdev-source',
 		text: task.dailyDate ?? task.path.replace(/\.md$/, ''),

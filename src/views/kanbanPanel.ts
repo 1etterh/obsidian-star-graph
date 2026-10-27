@@ -4,7 +4,6 @@ import { DATE_FORMAT } from '../core/dailyNotes';
 import { createdKey, sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { SortOrder, Task } from '../types';
-import { assignProject } from './assignProjectModal';
 import { createTaskComposer } from './taskComposer';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
@@ -53,9 +52,6 @@ export class KanbanPanel extends Component {
 		this.registerEvent(
 			this.plugin.index.on('updated', () => void this.renderBoard()),
 		);
-		this.registerEvent(
-			this.plugin.projects.on('changed', () => void this.renderBoard()),
-		);
 		void this.renderBoard();
 	}
 
@@ -102,7 +98,6 @@ export class KanbanPanel extends Component {
 		const today = moment().format(DATE_FORMAT);
 		const groups: Record<BoardColumn, Task[]> = { todo: [], today: [], done: [] };
 		for (const task of this.plugin.index.all()) {
-			if (!this.plugin.projects.isVisible(task)) continue;
 			const column = columnOf(task, today);
 			// The Dated filter keeps planned work out of Todo; Today and Done always show
 			if (column === 'todo' && !this.includeDated && (task.scheduled || task.due)) {
@@ -140,7 +135,6 @@ export class KanbanPanel extends Component {
 					task,
 					component,
 					this.rowHandlers,
-					this.plugin.projects.projectOf(task),
 				);
 				if (token !== this.renderToken) {
 					this.removeChild(component);
@@ -206,7 +200,6 @@ export class KanbanPanel extends Component {
 		toggle: (task) => void this.plugin.writer.toggle(task),
 		move: (task, column) => void this.plugin.writer.moveTo(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
-		assign: (task) => assignProject(this.plugin, task),
 		dragStart: (task) => {
 			this.dragged = task;
 		},

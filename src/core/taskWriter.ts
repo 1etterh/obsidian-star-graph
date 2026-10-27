@@ -1,17 +1,10 @@
-import { App, moment, Notice, TFile } from 'obsidian';
+import { App, moment, Notice } from 'obsidian';
 import type { SyncDevSettings } from '../settings';
 import type { Task, TaskStatus } from '../types';
 import { BoardColumn, columnOf } from './board';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
 import { newBlockId } from './blockId';
-import {
-	MARKERS,
-	replaceTag,
-	setLineTag,
-	setScheduled,
-	setTaskStatus,
-	withBlockId,
-} from './parser';
+import { MARKERS, setScheduled, setTaskStatus, withBlockId } from './parser';
 
 export class TaskWriter {
 	constructor(
@@ -55,11 +48,6 @@ export class TaskWriter {
 		return this.getSettings().addDoneDate ? moment().format(DATE_FORMAT) : undefined;
 	}
 
-	/** Swaps the task's project tag: removes `#remove`, adds `#add` */
-	async setProjectTag(task: Task, remove?: string, add?: string): Promise<void> {
-		await this.rewriteLine(task, (raw) => setLineTag(raw, remove, add));
-	}
-
 	private async rewriteLine(task: Task, change: (raw: string) => string | null): Promise<void> {
 		const file = this.app.vault.getFileByPath(task.path);
 		if (!file) return;
@@ -81,49 +69,19 @@ export class TaskWriter {
 
 	/** Appends a new task to the daily note of `date` (today by default) */
 	async addToDaily(text: string, date: moment.Moment = moment()): Promise<void> {
-		await this.appendTask(await this.dailyNote(date), text);
-	}
-
-	dailyNote(date: moment.Moment = moment()): Promise<TFile> {
-		return getOrCreateDailyNote(
+		const settings = this.getSettings();
+		const file = await getOrCreateDailyNote(
 			this.app,
-			getDailyNoteConfig(this.app, this.getSettings()),
+			getDailyNoteConfig(this.app, settings),
 			date,
 		);
-	}
-
-	/** Appends `- [ ] text` to the file; the block id, if any, goes last */
-	async appendTask(file: TFile, text: string, blockId?: string): Promise<void> {
-		const created = this.getSettings().addCreatedDate
+		const created = settings.addCreatedDate
 			? ` ${MARKERS.created} ${moment().format(DATE_FORMAT)}`
 			: '';
-		const block = blockId ? ` ^${blockId}` : '';
-		const line = `- [ ] ${text.trim()}${created}${block}`;
+		const line = `- [ ] ${text.trim()}${created}`;
 		await this.app.vault.process(file, (data) => {
 			if (data === '') return `${line}\n`;
 			return data.endsWith('\n') ? `${data}${line}\n` : `${data}\n${line}\n`;
 		});
-	}
-
-	/** Rewrites `#from` to `#to` on the given task lines, one write per file */
-	async renameTag(tasks: Task[], from: string, to: string): Promise<void> {
-		const byPath = new Map<string, Set<number>>();
-		for (const task of tasks) {
-			const lines = byPath.get(task.path) ?? new Set<number>();
-			lines.add(task.line);
-			byPath.set(task.path, lines);
-		}
-		for (const [path, lineNumbers] of byPath) {
-			const file = this.app.vault.getFileByPath(path);
-			if (!file) continue;
-			await this.app.vault.process(file, (data) => {
-				const lines = data.split('\n');
-				for (const n of lineNumbers) {
-					const line = lines[n];
-					if (line !== undefined) lines[n] = replaceTag(line, from, to);
-				}
-				return lines.join('\n');
-			});
-		}
 	}
 }
