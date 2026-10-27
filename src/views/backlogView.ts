@@ -56,6 +56,7 @@ export class BacklogView extends ItemView {
 		root.empty();
 		root.addClass('syncdev-backlog');
 
+		root.createEl('h2', { cls: 'syncdev-title', text: 'Backlog' });
 		this.renderAddInput(root);
 		this.renderToolbar(root);
 		this.listEl = root.createDiv({ cls: 'syncdev-list' });

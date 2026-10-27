@@ -63,13 +63,17 @@ export default class SyncDevPlugin extends Plugin {
 		});
 	}
 
+	/** Opens the backlog as a tab in the main area, reusing one if already open */
 	async openBacklog(): Promise<void> {
-		const leaf = await this.app.workspace.ensureSideLeaf(
-			BACKLOG_VIEW_TYPE,
-			'right',
-			{ reveal: true },
-		);
-		await this.app.workspace.revealLeaf(leaf);
+		const { workspace } = this.app;
+		const existing = workspace
+			.getLeavesOfType(BACKLOG_VIEW_TYPE)
+			.find((leaf) => leaf.getRoot() === workspace.rootSplit);
+		const leaf = existing ?? workspace.getLeaf('tab');
+		if (!existing) {
+			await leaf.setViewState({ type: BACKLOG_VIEW_TYPE, active: true });
+		}
+		await workspace.revealLeaf(leaf);
 	}
 
 	async loadSettings() {

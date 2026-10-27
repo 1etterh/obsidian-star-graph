@@ -1,11 +1,26 @@
 .syncdev-backlog {
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-4-2);
+	gap: var(--size-4-3);
+	max-width: var(--file-line-width);
+	margin: 0 auto;
+	padding: var(--size-4-6) var(--size-4-4);
+}
+
+.syncdev-title {
+	margin: 0;
 }
 
 .syncdev-add {
 	width: 100%;
+	padding: var(--size-4-2) var(--size-4-3);
+	font-size: var(--font-ui-medium);
+}
+
+.syncdev-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
 }
 
 .syncdev-toolbar {
