@@ -111,6 +111,12 @@ export class TaskIndex extends Events {
 			getDailyNoteConfig(this.app, this.getSettings()),
 		);
 		const tasks: Task[] = [];
+		// Tags as Obsidian parsed them, so ones in code spans don't count
+		const tagsByLine = new Map<number, string[]>();
+		for (const t of cache.tags ?? []) {
+			const at = t.position.start.line;
+			tagsByLine.set(at, [...(tagsByLine.get(at) ?? []), t.tag.slice(1).toLowerCase()]);
+		}
 
 		for (const item of cache.listItems ?? []) {
 			if (item.task === undefined) continue;
@@ -124,6 +130,7 @@ export class TaskIndex extends Events {
 				path: file.path,
 				line,
 				raw,
+				tags: tagsByLine.get(line) ?? [],
 				dailyDate,
 				fileCtime: file.stat.ctime,
 			});

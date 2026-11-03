@@ -17,6 +17,8 @@ export interface Task {
 	scheduled?: string;
 	due?: string;
 	completed?: string;
+	/** Tags on the task line, lowercase without '#' (e.g. work/syncdev) */
+	tags: string[];
 	/** Trailing ^block id, used as a stable identity */
 	blockId?: string;
 	/** Date of the daily note this task lives in, if any */

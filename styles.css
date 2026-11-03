@@ -87,9 +87,77 @@
 	margin-right: auto;
 }
 
-.syncdev-folder-filter {
-	width: 200px;
+.syncdev-chips {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2);
+	width: 260px;
 	min-width: 0;
+	min-height: var(--input-height);
+	padding: var(--size-2-1) var(--size-4-1);
+	border: var(--input-border-width) solid var(--background-modifier-border);
+	border-radius: var(--input-radius);
+	background: var(--background-modifier-form-field);
+	cursor: text;
+}
+
+.syncdev-chips:focus-within {
+	border-color: var(--background-modifier-border-focus);
+}
+
+.syncdev-chips-list {
+	display: contents;
+}
+
+.syncdev-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	padding: 0 var(--size-2-1) 0 var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-hover);
+	color: var(--text-normal);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.6;
+	white-space: nowrap;
+}
+
+.syncdev-chip.is-tag {
+	background: var(--tag-background);
+	color: var(--tag-color);
+}
+
+.syncdev-chip-remove {
+	display: inline-flex;
+	cursor: pointer;
+	color: var(--text-faint);
+}
+
+.syncdev-chip-remove:hover {
+	color: var(--text-normal);
+}
+
+.syncdev-chip-remove svg {
+	width: 12px;
+	height: 12px;
+}
+
+/* Obsidian styles input[type='text'] with a border and focus ring; the wrapper draws the box */
+.syncdev-chips input[type='text'].syncdev-chips-input,
+.syncdev-chips input[type='text'].syncdev-chips-input:hover,
+.syncdev-chips input[type='text'].syncdev-chips-input:focus,
+.syncdev-chips input[type='text'].syncdev-chips-input:focus-visible {
+	flex: 1;
+	min-width: 60px;
+	height: auto;
+	margin: 0;
+	padding: 0;
+	border: none;
+	border-radius: 0;
+	outline: none;
+	background: transparent;
+	box-shadow: none;
 }
 
 .syncdev-board {

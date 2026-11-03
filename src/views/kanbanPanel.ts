@@ -1,9 +1,10 @@
-import { Component, debounce, moment } from 'obsidian';
+import { Component, moment } from 'obsidian';
 import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
 import { DATE_FORMAT } from '../core/dailyNotes';
 import { createdKey, sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { SortOrder, Task } from '../types';
+import { createChipInput } from './chipInput';
 import { createTaskComposer } from './taskComposer';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
@@ -17,17 +18,33 @@ function sortDone(tasks: Task[]): Task[] {
 	return sortTasks(tasks, 'newest').sort((a, b) => key(b).localeCompare(key(a)));
 }
 
-/** `projects, work/a` → ['projects', 'work/a'] */
-function parseFolderFilter(value: string): string[] {
-	return value
-		.split(',')
-		.map((s) => s.trim().replace(/^\/+|\/+$/g, ''))
-		.filter(Boolean);
+interface ScopeFilter {
+	folders: string[];
+	tags: string[];
 }
 
-/** The folder itself or any subfolder */
-function inFolder(path: string, folder: string): boolean {
-	return path.startsWith(`${folder}/`);
+/** `projects, #syncdev` → folder `projects`, tag `syncdev`; any match counts */
+function parseScopeFilter(value: string): ScopeFilter {
+	const filter: ScopeFilter = { folders: [], tags: [] };
+	for (const part of value.split(',').map((s) => s.trim())) {
+		if (part.startsWith('#')) {
+			const tag = part.slice(1).replace(/\/+$/, '').toLowerCase();
+			if (tag) filter.tags.push(tag);
+		} else {
+			const folder = part.replace(/^\/+|\/+$/g, '');
+			if (folder) filter.folders.push(folder);
+		}
+	}
+	return filter;
+}
+
+/** A folder covers its subfolders and a tag its nested tags (#work → #work/syncdev) */
+function matchesScope(task: Task, filter: ScopeFilter): boolean {
+	if (filter.folders.length === 0 && filter.tags.length === 0) return true;
+	return (
+		filter.folders.some((f) => task.path.startsWith(`${f}/`)) ||
+		filter.tags.some((f) => task.tags.some((t) => t === f || t.startsWith(`${f}/`)))
+	);
 }
 
 interface ColumnEls {
@@ -90,18 +107,13 @@ export class KanbanPanel extends Component {
 			void this.renderBoard();
 		});
 
-		const folders = bar.createEl('input', {
-			type: 'text',
-			cls: 'syncdev-folder-filter',
-			placeholder: 'Folders, comma separated',
-		});
-		folders.value = settings.folderFilter;
-		const apply = debounce(() => {
-			settings.folderFilter = folders.value;
+		// Stored as one comma separated string, so older settings still load
+		const initial = settings.folderFilter.split(',').map((v) => v.trim()).filter(Boolean);
+		createChipInput(bar, initial, 'Folder or #tag, then enter', (values) => {
+			settings.folderFilter = values.join(', ');
 			void this.plugin.saveData(settings);
 			void this.renderBoard();
-		}, 300, true);
-		folders.addEventListener('input', apply);
+		});
 	}
 
 	private renderToggle(
@@ -123,9 +135,9 @@ export class KanbanPanel extends Component {
 	private groupTasks(): Record<BoardColumn, Task[]> {
 		const today = moment().format(DATE_FORMAT);
 		const groups: Record<BoardColumn, Task[]> = { todo: [], done: [] };
-		const folders = parseFolderFilter(this.plugin.settings.folderFilter);
+		const scope = parseScopeFilter(this.plugin.settings.folderFilter);
 		for (const task of this.plugin.index.all()) {
-			if (folders.length > 0 && !folders.some((f) => inFolder(task.path, f))) continue;
+			if (!matchesScope(task, scope)) continue;
 			const column = columnOf(task);
 			// The Dated filter keeps future work out of Todo; tasks due or scheduled by today stay
 			const date = task.scheduled ?? task.due;

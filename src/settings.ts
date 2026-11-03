@@ -7,7 +7,7 @@ export interface SyncDevSettings {
 	includeFolders: string[];
 	defaultSort: SortOrder;
 	showDone: boolean;
-	/** Kanban folder filter as typed in the toolbar, comma separated */
+	/** Kanban filter as typed in the toolbar: folders and #tags, comma separated */
 	folderFilter: string;
 	/** Empty means follow the core Daily notes settings */
 	dailyFolder: string;
