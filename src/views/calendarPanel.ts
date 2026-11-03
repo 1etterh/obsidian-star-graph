@@ -11,11 +11,12 @@ const GRID_DAYS = 42;
 
 /**
  * The day a task shows up on: done tasks on their completion date,
- * open ones on scheduled, then due, then their daily note date.
+ * open ones on scheduled, then due, then their daily note date, then created.
  */
 function calendarDate(task: Task): string | undefined {
 	if (task.status === 'done' && task.completed) return task.completed;
-	return task.scheduled ?? task.due ?? task.dailyDate;
+	// ➕ last: tasks outside daily notes often have no other date
+	return task.scheduled ?? task.due ?? task.dailyDate ?? task.created;
 }
 
 /** Month grid with the selected day's tasks, shown in the Calendar tab */
@@ -207,7 +208,7 @@ export class CalendarPanel extends Component {
 
 	private rowHandlers: TaskRowHandlers = {
 		toggle: (task) => void this.plugin.writer.toggle(task),
-		move: (task, column) => void this.plugin.writer.moveTo(task, column),
+		move: (task, column) => void this.plugin.writer.setStatus(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
 	};
 }

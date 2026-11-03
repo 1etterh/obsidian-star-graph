@@ -7,21 +7,27 @@ export interface SyncDevSettings {
 	includeFolders: string[];
 	defaultSort: SortOrder;
 	showDone: boolean;
+	/** Kanban folder filter as typed in the toolbar, comma separated */
+	folderFilter: string;
 	/** Empty means follow the core Daily notes settings */
 	dailyFolder: string;
 	dailyFormat: string;
 	addCreatedDate: boolean;
 	addDoneDate: boolean;
+	/** New tasks outside daily notes are also embedded in today's daily note */
+	embedInDaily: boolean;
 }
 
 export const DEFAULT_SETTINGS: SyncDevSettings = {
 	includeFolders: [],
 	defaultSort: 'newest',
 	showDone: true,
+	folderFilter: '',
 	dailyFolder: '',
 	dailyFormat: '',
 	addCreatedDate: true,
 	addDoneDate: false,
+	embedInDaily: true,
 };
 
 function parseFolders(value: string): string[] {
@@ -126,6 +132,16 @@ export class SyncDevSettingTab extends PluginSettingTab {
 			.addToggle((toggle) =>
 				toggle.setValue(settings.addDoneDate).onChange(async (value) => {
 					settings.addDoneDate = value;
+					await this.plugin.saveSettings();
+				}),
+			);
+
+		new Setting(containerEl)
+			.setName('Embed new tasks in daily note')
+			.setDesc('Tasks typed in included folders are embedded in today\'s daily note, so there is still one checkbox.')
+			.addToggle((toggle) =>
+				toggle.setValue(settings.embedInDaily).onChange(async (value) => {
+					settings.embedInDaily = value;
 					await this.plugin.saveSettings();
 				}),
 			);

@@ -89,6 +89,11 @@ export function setTaskStatus(
 	return `${head}${STATUS_CHAR[status]}${mid}${text}${done}${block ? block[0] : ''}`;
 }
 
+/** Appends a block id unless the line already ends with one */
+export function withBlockId(raw: string, id: string): string {
+	return BLOCK_ID_RE.test(raw) ? raw : `${raw.trimEnd()} ^${id}`;
+}
+
 /** Adds a ➕ created date before any trailing block id, unless the line has one */
 export function withCreated(raw: string, date: string): string {
 	if (!TASK_RE.test(raw) || extractDate(raw, MARKERS.created)) return raw;
@@ -96,25 +101,4 @@ export function withCreated(raw: string, date: string): string {
 	const block = BLOCK_ID_RE.exec(trimmed);
 	const at = block ? block.index : trimmed.length;
 	return `${trimmed.slice(0, at)} ${MARKERS.created} ${date}${trimmed.slice(at)}`;
-}
-
-const SCHEDULED_RE = new RegExp(`\\s*${MARKERS.scheduled}\\uFE0F?\\s*${DATE}`, 'u');
-// A new scheduled date goes before the done date and the block id
-const SCHEDULED_TAIL_RE = new RegExp(
-	`\\s+${MARKERS.done}\\uFE0F?\\s*\\d{4}-\\d{2}-\\d{2}|\\s+\\^[A-Za-z0-9-]+\\s*$`,
-	'u',
-);
-
-/** Sets (or with no date, removes) the ⏳ scheduled date on a task line */
-export function setScheduled(raw: string, date?: string): string {
-	const match = TASK_RE.exec(raw);
-	if (!match) return raw;
-	const [, head = '', status = ' ', mid = ''] = match;
-	let body = (match[4] ?? '').replace(SCHEDULED_RE, '');
-	if (date) {
-		const tail = SCHEDULED_TAIL_RE.exec(body);
-		const at = tail ? tail.index : body.trimEnd().length;
-		body = `${body.slice(0, at).trimEnd()} ${MARKERS.scheduled} ${date}${body.slice(at)}`;
-	}
-	return `${head}${status}${mid}${body}`;
 }

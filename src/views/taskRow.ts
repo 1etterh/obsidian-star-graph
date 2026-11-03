@@ -49,7 +49,7 @@ export async function renderTaskRow(
 	row.addEventListener('contextmenu', (evt) => {
 		evt.preventDefault();
 		const menu = new Menu();
-		const current = columnOf(task, moment().format(DATE_FORMAT));
+		const current = columnOf(task);
 		for (const column of Object.keys(COLUMN_LABELS) as BoardColumn[]) {
 			if (column === current) continue;
 			menu.addItem((item) =>

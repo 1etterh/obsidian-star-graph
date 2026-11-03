@@ -1,9 +1,8 @@
-import { App, moment, Notice } from 'obsidian';
+import { App, moment, Notice, TFile } from 'obsidian';
 import type { SyncDevSettings } from '../settings';
 import type { Task, TaskStatus } from '../types';
-import { BoardColumn, columnOf } from './board';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
-import { MARKERS, setScheduled, setTaskStatus } from './parser';
+import { MARKERS, setTaskStatus } from './parser';
 
 export class TaskWriter {
 	constructor(
@@ -19,23 +18,6 @@ export class TaskWriter {
 	async setStatus(task: Task, status: TaskStatus): Promise<void> {
 		if (task.status === status) return;
 		await this.rewriteLine(task, (raw) => setTaskStatus(raw, status, this.doneDate()));
-	}
-
-	/**
-	 * Today: open and ⏳ today. Todo: open, ⏳ removed. Done: checked, ⏳ kept.
-	 * One write per move.
-	 */
-	async moveTo(task: Task, column: BoardColumn): Promise<void> {
-		const today = moment().format(DATE_FORMAT);
-		if (columnOf(task, today) === column) return;
-		await this.rewriteLine(task, (raw) => {
-			const status: TaskStatus = column === 'done' ? 'done' : 'todo';
-			let next = setTaskStatus(raw, status, this.doneDate());
-			if (next === null) return null;
-			if (column === 'today') next = setScheduled(next, today);
-			if (column === 'todo') next = setScheduled(next);
-			return next;
-		});
 	}
 
 	/** Today's date when the ✅ done date is enabled in settings */
@@ -64,19 +46,36 @@ export class TaskWriter {
 
 	/** Appends a new task to the daily note of `date` (today by default) */
 	async addToDaily(text: string, date: moment.Moment = moment()): Promise<void> {
-		const settings = this.getSettings();
-		const file = await getOrCreateDailyNote(
-			this.app,
-			getDailyNoteConfig(this.app, settings),
-			date,
-		);
-		const created = settings.addCreatedDate
+		const created = this.getSettings().addCreatedDate
 			? ` ${MARKERS.created} ${moment().format(DATE_FORMAT)}`
 			: '';
-		const line = `- [ ] ${text.trim()}${created}`;
-		await this.app.vault.process(file, (data) => {
-			if (data === '') return `${line}\n`;
-			return data.endsWith('\n') ? `${data}${line}\n` : `${data}\n${line}\n`;
+		await this.appendToDaily([`- [ ] ${text.trim()}${created}`], date);
+	}
+
+	/** Embeds blocks (`#^id` of `source`) in today's daily note */
+	async embedInDaily(source: TFile, blockIds: string[]): Promise<void> {
+		const daily = await this.dailyNote(moment());
+		// No list marker: a block embed renders as its own block, so `- ` left an empty bullet
+		const lines = blockIds.map(
+			(id) => `!${this.app.fileManager.generateMarkdownLink(source, daily.path, `#^${id}`)}`,
+		);
+		await this.appendToDaily(lines, moment(), daily);
+	}
+
+	private dailyNote(date: moment.Moment): Promise<TFile> {
+		return getOrCreateDailyNote(this.app, getDailyNoteConfig(this.app, this.getSettings()), date);
+	}
+
+	private async appendToDaily(
+		lines: string[],
+		date: moment.Moment,
+		file?: TFile,
+	): Promise<void> {
+		const target = file ?? (await this.dailyNote(date));
+		const block = lines.join('\n');
+		await this.app.vault.process(target, (data) => {
+			if (data === '') return `${block}\n`;
+			return data.endsWith('\n') ? `${data}${block}\n` : `${data}\n${block}\n`;
 		});
 	}
 }

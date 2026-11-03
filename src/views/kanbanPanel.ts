@@ -1,4 +1,4 @@
-import { Component, moment } from 'obsidian';
+import { Component, debounce, moment } from 'obsidian';
 import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
 import { DATE_FORMAT } from '../core/dailyNotes';
 import { createdKey, sortTasks } from '../core/sort';
@@ -7,7 +7,7 @@ import type { SortOrder, Task } from '../types';
 import { createTaskComposer } from './taskComposer';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
-const COLUMNS: BoardColumn[] = ['todo', 'today', 'done'];
+const COLUMNS: BoardColumn[] = ['todo', 'done'];
 // Done tasks pile up over time; only the most recently completed are shown
 const DONE_LIMIT = 30;
 
@@ -17,13 +17,26 @@ function sortDone(tasks: Task[]): Task[] {
 	return sortTasks(tasks, 'newest').sort((a, b) => key(b).localeCompare(key(a)));
 }
 
+/** `projects, work/a` → ['projects', 'work/a'] */
+function parseFolderFilter(value: string): string[] {
+	return value
+		.split(',')
+		.map((s) => s.trim().replace(/^\/+|\/+$/g, ''))
+		.filter(Boolean);
+}
+
+/** The folder itself or any subfolder */
+function inFolder(path: string, folder: string): boolean {
+	return path.startsWith(`${folder}/`);
+}
+
 interface ColumnEls {
 	column: HTMLElement;
 	count: HTMLElement;
 	list: HTMLElement;
 }
 
-/** Todo / Today / Done board, shown in the Kanban tab */
+/** Todo / Done board, shown in the Kanban tab */
 export class KanbanPanel extends Component {
 	private boardEl!: HTMLElement;
 	/** Columns are built once; renders only swap their lists, so the add input survives */
@@ -76,6 +89,19 @@ export class KanbanPanel extends Component {
 			this.sort = select.value as SortOrder;
 			void this.renderBoard();
 		});
+
+		const folders = bar.createEl('input', {
+			type: 'text',
+			cls: 'syncdev-folder-filter',
+			placeholder: 'Folders, comma separated',
+		});
+		folders.value = settings.folderFilter;
+		const apply = debounce(() => {
+			settings.folderFilter = folders.value;
+			void this.plugin.saveData(settings);
+			void this.renderBoard();
+		}, 300, true);
+		folders.addEventListener('input', apply);
 	}
 
 	private renderToggle(
@@ -96,18 +122,18 @@ export class KanbanPanel extends Component {
 
 	private groupTasks(): Record<BoardColumn, Task[]> {
 		const today = moment().format(DATE_FORMAT);
-		const groups: Record<BoardColumn, Task[]> = { todo: [], today: [], done: [] };
+		const groups: Record<BoardColumn, Task[]> = { todo: [], done: [] };
+		const folders = parseFolderFilter(this.plugin.settings.folderFilter);
 		for (const task of this.plugin.index.all()) {
-			const column = columnOf(task, today);
-			// The Dated filter keeps planned work out of Todo; Today and Done always show
-			if (column === 'todo' && !this.includeDated && (task.scheduled || task.due)) {
-				continue;
-			}
+			if (folders.length > 0 && !folders.some((f) => inFolder(task.path, f))) continue;
+			const column = columnOf(task);
+			// The Dated filter keeps future work out of Todo; tasks due or scheduled by today stay
+			const date = task.scheduled ?? task.due;
+			if (column === 'todo' && !this.includeDated && date && date > today) continue;
 			groups[column].push(task);
 		}
 		return {
 			todo: sortTasks(groups.todo, this.sort),
-			today: sortTasks(groups.today, this.sort),
 			done: sortDone(groups.done),
 		};
 	}
@@ -172,8 +198,7 @@ export class KanbanPanel extends Component {
 		}
 
 		column.addEventListener('dragover', (evt) => {
-			const today = moment().format(DATE_FORMAT);
-			if (!this.dragged || columnOf(this.dragged, today) === status) return;
+			if (!this.dragged || columnOf(this.dragged) === status) return;
 			evt.preventDefault();
 			if (evt.dataTransfer) evt.dataTransfer.dropEffect = 'move';
 			column.addClass('is-drop-target');
@@ -189,7 +214,7 @@ export class KanbanPanel extends Component {
 			column.removeClass('is-drop-target');
 			const task = this.dragged;
 			this.dragged = null;
-			if (task) void this.plugin.writer.moveTo(task, status);
+			if (task) void this.plugin.writer.setStatus(task, status);
 		});
 
 		const list = column.createDiv({ cls: 'syncdev-list' });
@@ -198,7 +223,7 @@ export class KanbanPanel extends Component {
 
 	private rowHandlers: TaskRowHandlers = {
 		toggle: (task) => void this.plugin.writer.toggle(task),
-		move: (task, column) => void this.plugin.writer.moveTo(task, column),
+		move: (task, column) => void this.plugin.writer.setStatus(task, column),
 		open: (task) => void openTask(this.plugin.app, task),
 		dragStart: (task) => {
 			this.dragged = task;

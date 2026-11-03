@@ -20,7 +20,7 @@ export default class SyncDevPlugin extends Plugin {
 		await this.loadSettings();
 		this.index = new TaskIndex(this.app, () => this.settings);
 		this.writer = new TaskWriter(this.app, () => this.settings);
-		this.stamper = new CreatedStamper(this.app, this.index, () => this.settings);
+		this.stamper = new CreatedStamper(this.app, this.index, this.writer, () => this.settings);
 
 		registerIcons();
 		this.registerView(

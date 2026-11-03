@@ -1,16 +1,13 @@
-import type { Task } from '../types';
+import type { Task, TaskStatus } from '../types';
 
-/** Kanban columns; Today is derived from the ⏳ scheduled date, not the checkbox */
-export type BoardColumn = 'todo' | 'today' | 'done';
+/** Kanban columns follow the checkbox */
+export type BoardColumn = TaskStatus;
 
 export const COLUMN_LABELS: Record<BoardColumn, string> = {
 	todo: 'Todo',
-	today: 'Today',
 	done: 'Done',
 };
 
-/** Open tasks scheduled for today or earlier are on Today, so missed ones carry over */
-export function columnOf(task: Task, today: string): BoardColumn {
-	if (task.status === 'done') return 'done';
-	return task.scheduled && task.scheduled <= today ? 'today' : 'todo';
+export function columnOf(task: Task): BoardColumn {
+	return task.status;
 }

@@ -87,6 +87,11 @@
 	margin-right: auto;
 }
 
+.syncdev-folder-filter {
+	width: 200px;
+	min-width: 0;
+}
+
 .syncdev-board {
 	flex: 1;
 	min-height: 0;

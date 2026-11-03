@@ -31,6 +31,8 @@
 | 3.7 | 단순화: 프로젝트·DDD(이벤트 스토밍) 기능 제거, 백로그 추적만 유지 | ✅ 완료 |
 | 3.8 | 상태 로그 폴더를 설정으로(기본 `SyncDev/logs`, 비우면 끔) | ❌ 제거 (3.9) |
 | 3.9 | 상태 로그·Exclude folders 제거, 노트에 직접 쓴 새 task에 `➕ 생성일` 자동 추가 | ✅ 완료 |
+| 3.10 | Include folders에 쓴 새 task를 오늘 데일리 노트에 블록 임베드 | ✅ 완료 |
+| 3.11 | Kanban을 Todo / Done 두 열로(Today 제거), 툴바에 폴더 필터 | ✅ 완료 |
 | 4 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 5 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
 | 6 | Obsidian Bases 연동: 프로젝트 index.md에 진행 상황 속성 기록 | ❌ 제거 (프로젝트 기능과 함께) |
@@ -120,6 +122,20 @@
   - 노트가 열려 있으면 에디터로(저장 안 된 입력 보존, Ctrl+Z로 취소 가능), 아니면 `vault.process`로 기록
   - 기존 task에는 붙이지 않음. 다른 기기에서 동기화된 새 task는 받은 날짜로 붙음
 - 기존 `SyncDev/logs`(또는 `SyncDev/log`) 파일은 건드리지 않음
+
+### 3.10단계에 들어간 것
+
+- 데일리 노트가 아닌 노트(Include folders)에 새 task를 쓰면 줄 끝에 `^sd-` 블록 id를 붙이고, 오늘 데일리 노트 끝에 `![[노트#^sd-…]]` 임베드 추가(앞에 `- `를 붙이면 빈 글머리표 + 임베드로 보여서 뺌). 설정 "Embed new tasks in daily note"(기본 켬)
+- 복사 대신 임베드: 체크박스 원본이 하나라 Kanban에 중복되지 않음(임베드 줄은 task가 아님)
+- 새 task 판별 보강: 내용으로 먼저 짝짓고, 남은 task가 같은 줄의 기존 task를 고친 것이면 새 task로 보지 않음(입력 중이던 task는 예외). 기존 task 내용을 고쳐도 ➕·임베드가 붙지 않음
+- `➕`가 이미 있는 task(붙여 넣기, Add task)는 건너뜀
+
+### 3.11단계에 들어간 것
+
+- Today 열 제거: 열은 체크박스 상태만 따름(`core/board.ts`). `TaskWriter.moveTo`와 `setScheduled` 제거, 이동은 `setStatus`로. 기존 `⏳`는 읽기만 하고 건드리지 않음
+- Dated 필터: 미래(`⏳`/`📅`가 오늘 이후) task만 Todo에서 숨김. 오늘 이하로 잡힌 task는 Today 열이 없어져도 Todo에 보임
+- Calendar: 날짜가 `➕`뿐인 task(데일리 노트 밖)도 생성일 칸에 놓음. 놓는 순서 `✅`(완료) → `⏳` → `📅` → 데일리 노트 날짜 → `➕`
+- 툴바 폴더 필터(정렬 옆): 경로를 입력, `,`로 여러 폴더(`projects, work/a`). 하위 폴더까지 포함, 비우면 전체. 입력값은 설정(`folderFilter`)에 저장
 
 ## 남은 이슈 / 메모
 
