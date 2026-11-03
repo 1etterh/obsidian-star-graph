@@ -11,7 +11,6 @@ import type { SyncDevSettings } from '../settings';
 import type { Task } from '../types';
 import { dailyDateOf, getDailyNoteConfig } from './dailyNotes';
 import { parseTaskLine } from './parser';
-import { StatusChange, statusChanges } from './statusDiff';
 
 function inFolder(path: string, folder: string): boolean {
 	const f = folder.replace(/\/+$/, '');
@@ -33,9 +32,16 @@ export class TaskIndex extends Events {
 		super();
 	}
 
-	/** Typed subscription to 'status-changed' */
-	onStatusChanged(callback: (changes: StatusChange[]) => void): EventRef {
-		return this.on('status-changed', (changes) => callback(changes as StatusChange[]));
+	/** Typed subscription to 'file-edited': a note's tasks before and after an edit */
+	onFileEdited(callback: (file: TFile, before: Task[], after: Task[]) => void): EventRef {
+		return this.on('file-edited', (file, before, after) => {
+			if (file instanceof TFile) callback(file, before as Task[], after as Task[]);
+		});
+	}
+
+	/** Current tasks of one file */
+	tasksOf(path: string): Task[] {
+		return this.tasks.get(path) ?? [];
 	}
 
 	all(): Task[] {
@@ -43,15 +49,18 @@ export class TaskIndex extends Events {
 	}
 
 	async rebuild(): Promise<void> {
-		this.tasks.clear();
+		// Built aside and swapped in, so edits during the rebuild still see the old tasks
+		const next = new Map<string, Task[]>();
 		const files = this.app.vault
 			.getMarkdownFiles()
 			.filter((f) => this.inScope(f.path));
 		for (const file of files) {
 			const cache = this.app.metadataCache.getFileCache(file);
 			if (!cache?.listItems?.some((i) => i.task !== undefined)) continue;
-			this.indexFile(file, await this.app.vault.cachedRead(file), cache);
+			const tasks = this.parseFile(file, await this.app.vault.cachedRead(file), cache);
+			if (tasks.length > 0) next.set(file.path, tasks);
 		}
+		this.tasks = next;
 		this.notify();
 	}
 
@@ -60,7 +69,9 @@ export class TaskIndex extends Events {
 			if (this.tasks.delete(file.path)) this.notify();
 			return;
 		}
-		this.indexFile(file, data, cache);
+		const before = this.tasksOf(file.path);
+		const after = this.indexFile(file, data, cache);
+		this.trigger('file-edited', file, before, after);
 		this.notify();
 	}
 
@@ -77,16 +88,23 @@ export class TaskIndex extends Events {
 		this.notify();
 	}
 
-	private inScope(path: string): boolean {
-		const { includeFolders, excludeFolders, logFolder } = this.getSettings();
-		// The status log links to tasks but never holds them
-		if (logFolder && inFolder(path, logFolder)) return false;
-		if (excludeFolders.some((f) => f && inFolder(path, f))) return false;
-		const include = includeFolders.filter(Boolean);
-		return include.length === 0 || include.some((f) => inFolder(path, f));
+	/** Include folders (empty means the whole vault) plus daily notes */
+	inScope(path: string): boolean {
+		const settings = this.getSettings();
+		const include = settings.includeFolders.filter(Boolean);
+		if (include.length === 0 || include.some((f) => inFolder(path, f))) return true;
+		const file = this.app.vault.getFileByPath(path);
+		return !!file && !!dailyDateOf(file, getDailyNoteConfig(this.app, settings));
 	}
 
-	private indexFile(file: TFile, data: string, cache: CachedMetadata): void {
+	private indexFile(file: TFile, data: string, cache: CachedMetadata): Task[] {
+		const tasks = this.parseFile(file, data, cache);
+		if (tasks.length > 0) this.tasks.set(file.path, tasks);
+		else this.tasks.delete(file.path);
+		return tasks;
+	}
+
+	private parseFile(file: TFile, data: string, cache: CachedMetadata): Task[] {
 		const lines = data.split('\n');
 		const dailyDate = dailyDateOf(
 			file,
@@ -111,13 +129,6 @@ export class TaskIndex extends Events {
 			});
 		}
 
-		const before = this.tasks.get(file.path);
-		if (tasks.length > 0) this.tasks.set(file.path, tasks);
-		else this.tasks.delete(file.path);
-		// Only re-indexes compare; a rebuild starts empty and reports nothing
-		if (before) {
-			const changes = statusChanges(before, tasks);
-			if (changes.length > 0) this.trigger('status-changed', changes);
-		}
+		return tasks;
 	}
 }

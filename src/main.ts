@@ -1,5 +1,5 @@
 import { debounce, Plugin } from 'obsidian';
-import { StatusLog } from './core/statusLog';
+import { CreatedStamper } from './core/createdStamper';
 import { TaskIndex } from './core/taskIndex';
 import { registerIcons, SYNCDEV_ICON } from './icon';
 import { TaskWriter } from './core/taskWriter';
@@ -11,16 +11,16 @@ export default class SyncDevPlugin extends Plugin {
 	settings!: SyncDevSettings;
 	index!: TaskIndex;
 	writer!: TaskWriter;
-	statusLog!: StatusLog;
+	stamper!: CreatedStamper;
 
-	// Folder settings (including the log folder) change the index scope, so rebuild once typing settles
+	// Folder settings change the index scope, so rebuild once typing settles
 	private rebuildSoon = debounce(() => void this.index.rebuild(), 500, true);
 
 	async onload() {
 		await this.loadSettings();
 		this.index = new TaskIndex(this.app, () => this.settings);
 		this.writer = new TaskWriter(this.app, () => this.settings);
-		this.statusLog = new StatusLog(this.app, () => this.settings);
+		this.stamper = new CreatedStamper(this.app, this.index, () => this.settings);
 
 		registerIcons();
 		this.registerView(
@@ -62,7 +62,13 @@ export default class SyncDevPlugin extends Plugin {
 		this.app.workspace.onLayoutReady(() => {
 			void this.index.rebuild();
 			this.registerEvent(
-				this.index.onStatusChanged((changes) => void this.statusLog.record(changes)),
+				this.index.onFileEdited((file, before, after) =>
+					this.stamper.onFileEdited(file, before, after),
+				),
+			);
+			// Leaving a note may free tasks that waited while their line was being edited
+			this.registerEvent(
+				this.app.workspace.on('active-leaf-change', () => this.stamper.flush()),
 			);
 			this.registerEvent(
 				this.app.metadataCache.on('changed', (file, data, cache) =>

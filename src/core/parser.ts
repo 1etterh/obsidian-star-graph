@@ -89,9 +89,13 @@ export function setTaskStatus(
 	return `${head}${STATUS_CHAR[status]}${mid}${text}${done}${block ? block[0] : ''}`;
 }
 
-/** Appends a block id unless the line already ends with one */
-export function withBlockId(raw: string, id: string): string {
-	return BLOCK_ID_RE.test(raw) ? raw : `${raw.trimEnd()} ^${id}`;
+/** Adds a ➕ created date before any trailing block id, unless the line has one */
+export function withCreated(raw: string, date: string): string {
+	if (!TASK_RE.test(raw) || extractDate(raw, MARKERS.created)) return raw;
+	const trimmed = raw.trimEnd();
+	const block = BLOCK_ID_RE.exec(trimmed);
+	const at = block ? block.index : trimmed.length;
+	return `${trimmed.slice(0, at)} ${MARKERS.created} ${date}${trimmed.slice(at)}`;
 }
 
 const SCHEDULED_RE = new RegExp(`\\s*${MARKERS.scheduled}\\uFE0F?\\s*${DATE}`, 'u');

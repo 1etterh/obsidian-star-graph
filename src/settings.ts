@@ -3,9 +3,8 @@ import type SyncDevPlugin from './main';
 import type { SortOrder } from './types';
 
 export interface SyncDevSettings {
-	/** Empty means the whole vault */
+	/** Empty means the whole vault; daily notes are always included */
 	includeFolders: string[];
-	excludeFolders: string[];
 	defaultSort: SortOrder;
 	showDone: boolean;
 	/** Empty means follow the core Daily notes settings */
@@ -13,20 +12,16 @@ export interface SyncDevSettings {
 	dailyFormat: string;
 	addCreatedDate: boolean;
 	addDoneDate: boolean;
-	/** Empty turns the status log off */
-	logFolder: string;
 }
 
 export const DEFAULT_SETTINGS: SyncDevSettings = {
 	includeFolders: [],
-	excludeFolders: [],
 	defaultSort: 'newest',
 	showDone: true,
 	dailyFolder: '',
 	dailyFormat: '',
 	addCreatedDate: true,
 	addDoneDate: false,
-	logFolder: 'SyncDev/logs',
 };
 
 function parseFolders(value: string): string[] {
@@ -53,26 +48,13 @@ export class SyncDevSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Include folders')
-			.setDesc('One folder per line. Leave empty to scan the whole vault.')
+			.setDesc('One folder per line. Daily notes are always included. Leave empty to scan the whole vault.')
 			.addTextArea((text) =>
 				text
 					.setPlaceholder('Daily\nProjects')
 					.setValue(settings.includeFolders.join('\n'))
 					.onChange(async (value) => {
 						settings.includeFolders = parseFolders(value);
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName('Exclude folders')
-			.setDesc('One folder per line.')
-			.addTextArea((text) =>
-				text
-					.setPlaceholder('Templates\nArchive')
-					.setValue(settings.excludeFolders.join('\n'))
-					.onChange(async (value) => {
-						settings.excludeFolders = parseFolders(value);
 						await this.plugin.saveSettings();
 					}),
 			);
@@ -130,7 +112,7 @@ export class SyncDevSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Add created date')
-			.setDesc('Append ➕ with today\'s date to new tasks.')
+			.setDesc('Append ➕ with today\'s date to new tasks, including ones typed in included folders and daily notes.')
 			.addToggle((toggle) =>
 				toggle.setValue(settings.addCreatedDate).onChange(async (value) => {
 					settings.addCreatedDate = value;
@@ -140,30 +122,12 @@ export class SyncDevSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Add done date')
-			.setDesc('Append ✅ with the date when a task is checked. Status changes are logged either way.')
+			.setDesc('Append ✅ with the date when a task is checked.')
 			.addToggle((toggle) =>
 				toggle.setValue(settings.addDoneDate).onChange(async (value) => {
 					settings.addDoneDate = value;
 					await this.plugin.saveSettings();
 				}),
-			);
-
-		new Setting(containerEl).setName('Status log').setHeading();
-
-		new Setting(containerEl)
-			.setName('Log folder')
-			.setDesc(
-				'Status changes are appended to a monthly note here. Leave empty to turn logging off. ' +
-					'To hide it from search and graph, add it to Settings → Files and links → Excluded files.',
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder('SyncDev/logs')
-					.setValue(settings.logFolder)
-					.onChange(async (value) => {
-						settings.logFolder = value.trim().replace(/^\/+|\/+$/g, '');
-						await this.plugin.saveSettings();
-					}),
 			);
 	}
 }

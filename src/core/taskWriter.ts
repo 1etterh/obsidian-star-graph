@@ -3,8 +3,7 @@ import type { SyncDevSettings } from '../settings';
 import type { Task, TaskStatus } from '../types';
 import { BoardColumn, columnOf } from './board';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from './dailyNotes';
-import { newBlockId } from './blockId';
-import { MARKERS, setScheduled, setTaskStatus, withBlockId } from './parser';
+import { MARKERS, setScheduled, setTaskStatus } from './parser';
 
 export class TaskWriter {
 	constructor(
@@ -19,16 +18,12 @@ export class TaskWriter {
 
 	async setStatus(task: Task, status: TaskStatus): Promise<void> {
 		if (task.status === status) return;
-		// The block id lets the status log link to this exact task
-		await this.rewriteLine(task, (raw) => {
-			const next = setTaskStatus(raw, status, this.doneDate());
-			return next === null ? null : withBlockId(next, newBlockId());
-		});
+		await this.rewriteLine(task, (raw) => setTaskStatus(raw, status, this.doneDate()));
 	}
 
 	/**
 	 * Today: open and ⏳ today. Todo: open, ⏳ removed. Done: checked, ⏳ kept.
-	 * One write, so the status log sees a single change.
+	 * One write per move.
 	 */
 	async moveTo(task: Task, column: BoardColumn): Promise<void> {
 		const today = moment().format(DATE_FORMAT);
@@ -39,7 +34,7 @@ export class TaskWriter {
 			if (next === null) return null;
 			if (column === 'today') next = setScheduled(next, today);
 			if (column === 'todo') next = setScheduled(next);
-			return status === task.status ? next : withBlockId(next, newBlockId());
+			return next;
 		});
 	}
 

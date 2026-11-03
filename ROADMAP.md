@@ -1,6 +1,6 @@
 # SyncDev Roadmap
 
-데일리 노트의 task를 모아 보는 백로그 플러그인(Kanban + Calendar, 상태 변경 기록). 브랜치: `syncdev`
+데일리 노트의 task를 모아 보는 백로그 플러그인(Kanban + Calendar, 새 task에 생성일 자동 기록). 브랜치: `syncdev`
 
 ## 핵심 원칙
 
@@ -25,11 +25,12 @@
 | 3.1 | 프로젝트 허브(`SyncDev/index.md`)와 공용 프로젝트 메뉴 | ❌ 제거 (3.7) |
 | 3.2 | 프로젝트 메뉴에 이름 변경·삭제 추가 | ❌ 제거 (3.7) |
 | 3.3 | task 우클릭 "Assign to project…" (백로그 → 프로젝트) | ❌ 제거 (3.7) |
-| 3.4 | task 상태 변경 기록(월별 로그 파일) | ✅ 완료 |
+| 3.4 | task 상태 변경 기록(월별 로그 파일) | ❌ 제거 (3.9) |
 | 3.5 | In progress 제거 → Todo / Today / Done 보드 | ✅ 완료 |
 | 3.6 | 완료 날짜 표기 선택화, 상태 로그 표 형식 | ✅ 완료 |
 | 3.7 | 단순화: 프로젝트·DDD(이벤트 스토밍) 기능 제거, 백로그 추적만 유지 | ✅ 완료 |
-| 3.8 | 상태 로그 폴더를 설정으로(기본 `SyncDev/logs`, 비우면 끔) | ✅ 완료 |
+| 3.8 | 상태 로그 폴더를 설정으로(기본 `SyncDev/logs`, 비우면 끔) | ❌ 제거 (3.9) |
+| 3.9 | 상태 로그·Exclude folders 제거, 노트에 직접 쓴 새 task에 `➕ 생성일` 자동 추가 | ✅ 완료 |
 | 4 | Timeline 뷰 + Backlog → Timeline 드래그로 `⏳ 날짜 시간` 기록 | 보류 (구체화할 때 구현) |
 | 5 | 마감 지난 task 강조 강화, 단축키, 설정 검색 API(`getSettingDefinitions`) | 예정 |
 | 6 | Obsidian Bases 연동: 프로젝트 index.md에 진행 상황 속성 기록 | ❌ 제거 (프로젝트 기능과 함께) |
@@ -109,6 +110,16 @@
 - 로그 폴더는 task 인덱스 범위에서 자동 제외
 - 기본값을 `syncdev/logs`가 아닌 `SyncDev/logs`로: macOS처럼 대소문자를 구분하지 않는 파일 시스템에서 기존 `SyncDev/`와 충돌하지 않게
 - 기존 `SyncDev/log/` 파일은 자동 이동하지 않음. 필요하면 직접 옮기기
+
+### 3.9단계에 들어간 것
+
+- 상태 로그(`statusLog.ts`, `statusDiff.ts`)와 `^sd-` 블록 id 자동 추가, 설정 "Log folder"·"Exclude folders" 제거. 실제로 로그 파일이 생기지 않았고, 기록보다 생성일 표기가 필요해서
+- 인덱스 범위: Include folders(비우면 볼트 전체) + 데일리 노트(폴더와 상관없이 항상 포함)
+- `core/createdStamper.ts`: 노트가 다시 인덱싱될 때 이전보다 늘어난 task(내용 기준) 중 `➕`가 없는 것에 `➕ 오늘` 추가. 설정 "Add created date"를 따름
+  - 커서가 있는 줄은 입력 중이라 건너뛰고, 다음 편집이나 다른 창으로 이동할 때 추가
+  - 노트가 열려 있으면 에디터로(저장 안 된 입력 보존, Ctrl+Z로 취소 가능), 아니면 `vault.process`로 기록
+  - 기존 task에는 붙이지 않음. 다른 기기에서 동기화된 새 task는 받은 날짜로 붙음
+- 기존 `SyncDev/logs`(또는 `SyncDev/log`) 파일은 건드리지 않음
 
 ## 남은 이슈 / 메모
 
