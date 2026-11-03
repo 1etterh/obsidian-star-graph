@@ -64,9 +64,23 @@ export class SyncDevView extends ItemView {
 		root.empty();
 		root.addClass('syncdev-view');
 
+		const bar = root.createDiv({ cls: 'syncdev-tabs' });
+		for (const { id, label, icon } of TABS) {
+			const el = bar.createDiv({ cls: 'syncdev-tab' });
+			setIcon(el.createSpan({ cls: 'syncdev-tab-icon' }), icon);
+			el.createSpan({ text: label });
+			el.addEventListener('click', () => {
+				this.showTab(id);
+				// Persist the tab in the workspace layout
+				this.app.workspace.requestSaveLayout();
+			});
+			this.tabEls.set(id, el);
+		}
+
 		// Shared by both tabs, so switching tabs keeps the same tasks in view
 		const { settings } = this.plugin;
-		const filterBar = root.createDiv({ cls: 'syncdev-filter' });
+		// On the tab row, pushed to the right end
+		const filterBar = bar.createDiv({ cls: 'syncdev-filter' });
 		const done = filterBar.createEl('label', { cls: 'syncdev-toggle' });
 		const doneBox = done.createEl('input', { type: 'checkbox' });
 		doneBox.checked = settings.showDone;
@@ -91,19 +105,6 @@ export class SyncDevView extends ItemView {
 			settings.folderFilter = values.join(', ');
 			this.saveAndRefresh();
 		});
-
-		const bar = root.createDiv({ cls: 'syncdev-tabs' });
-		for (const { id, label, icon } of TABS) {
-			const el = bar.createDiv({ cls: 'syncdev-tab' });
-			setIcon(el.createSpan({ cls: 'syncdev-tab-icon' }), icon);
-			el.createSpan({ text: label });
-			el.addEventListener('click', () => {
-				this.showTab(id);
-				// Persist the tab in the workspace layout
-				this.app.workspace.requestSaveLayout();
-			});
-			this.tabEls.set(id, el);
-		}
 		this.panelEl = root.createDiv({ cls: 'syncdev-panel' });
 
 		this.showTab(this.tab, true);

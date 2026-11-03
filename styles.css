@@ -7,12 +7,10 @@
 
 .syncdev-filter {
 	display: flex;
-	flex-shrink: 0;
 	align-items: center;
-	justify-content: flex-end;
 	gap: var(--size-4-2);
-	padding: var(--size-4-3) var(--size-4-4);
-	border-bottom: 1px solid var(--background-modifier-border);
+	margin-left: auto;
+	padding-bottom: var(--size-4-2);
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
 }
@@ -25,6 +23,8 @@
 .syncdev-tabs {
 	display: flex;
 	flex-shrink: 0;
+	/* Tabs sit on the bottom border so the active underline meets it */
+	align-items: flex-end;
 	gap: var(--size-4-1);
 	padding: var(--size-4-2) var(--size-4-4) 0;
 	border-bottom: 1px solid var(--background-modifier-border);
