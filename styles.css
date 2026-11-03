@@ -5,6 +5,23 @@
 	overflow: hidden;
 }
 
+.syncdev-filter {
+	display: flex;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: flex-end;
+	gap: var(--size-4-2);
+	padding: var(--size-4-3) var(--size-4-4);
+	border-bottom: 1px solid var(--background-modifier-border);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.syncdev-filter .syncdev-chips {
+	width: 260px;
+	box-sizing: border-box;
+}
+
 .syncdev-tabs {
 	display: flex;
 	flex-shrink: 0;
@@ -75,24 +92,11 @@
 	gap: var(--size-2-1);
 }
 
-.syncdev-toolbar {
-	display: flex;
-	align-items: center;
-	gap: var(--size-4-2);
-	font-size: var(--font-ui-small);
-	color: var(--text-muted);
-}
-
-.syncdev-toolbar > :first-child {
-	margin-right: auto;
-}
-
 .syncdev-chips {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--size-2-2);
-	width: 260px;
 	min-width: 0;
 	min-height: var(--input-height);
 	padding: var(--size-2-1) var(--size-4-1);

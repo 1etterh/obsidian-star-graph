@@ -146,6 +146,9 @@
 - 중첩 태그 포함(`#work` → `#work/syncdev`), 대소문자 무시. 태그는 task 줄에 있는 것만(`metadataCache`의 tags 위치 기준, 코드 안 `#`은 제외)
 - 쓰임: 데일리 노트에 바로 쓴 task를 프로젝트별로 묶기(폴더로는 나눌 수 없음). 태그는 직접 입력
 - 입력은 칩(badge) 형태(`views/chipInput.ts`): Enter나 `,`로 칩 추가, 빈 칸에서 Backspace로 마지막 칩 삭제, ×로 개별 삭제, 쉼표가 든 텍스트를 붙여 넣으면 나눠서 추가. 태그 칩은 태그 색. 저장은 기존처럼 쉼표로 이은 문자열(`folderFilter`)
+- 필터 위치: Kanban 툴바 → 탭 바 위(`syncdevView`)로 옮겨 Kanban·Calendar가 같은 필터를 씀(`core/scope.ts`). Calendar는 칸 배지와 그날 목록 모두 필터 적용
+- Kanban 툴바 제거: Done 토글·정렬도 필터 줄로 옮겨 두 탭이 함께 씀. Calendar는 Done을 끄면 완료 task를 숨기고, 그날 목록은 미완료 먼저 + 선택한 정렬. 둘 다 기억(`showDone`, `defaultSort`)하고, 설정 탭의 같은 항목은 제거
+- Dated 토글 제거(예정일·마감일이 오늘 이후인 task를 Todo에서 숨기던 기능, 쓰임이 불분명해서)
 
 ## 남은 이슈 / 메모
 

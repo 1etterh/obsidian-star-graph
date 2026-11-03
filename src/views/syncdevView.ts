@@ -1,7 +1,9 @@
 import { Component, ItemView, setIcon, ViewStateResult, WorkspaceLeaf } from 'obsidian';
 import { SYNCDEV_ICON } from '../icon';
 import type SyncDevPlugin from '../main';
+import type { SortOrder } from '../types';
 import { CalendarPanel } from './calendarPanel';
+import { createChipInput } from './chipInput';
 import { KanbanPanel } from './kanbanPanel';
 
 export const SYNCDEV_VIEW_TYPE = 'syncdev';
@@ -26,7 +28,7 @@ export class SyncDevView extends ItemView {
 	private tab: SyncDevTab = 'kanban';
 	private tabEls = new Map<SyncDevTab, HTMLElement>();
 	private panelEl!: HTMLElement;
-	private panel: Component | null = null;
+	private panel: (Component & { refresh(): void }) | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -62,6 +64,34 @@ export class SyncDevView extends ItemView {
 		root.empty();
 		root.addClass('syncdev-view');
 
+		// Shared by both tabs, so switching tabs keeps the same tasks in view
+		const { settings } = this.plugin;
+		const filterBar = root.createDiv({ cls: 'syncdev-filter' });
+		const done = filterBar.createEl('label', { cls: 'syncdev-toggle' });
+		const doneBox = done.createEl('input', { type: 'checkbox' });
+		doneBox.checked = settings.showDone;
+		done.appendText('Done');
+		doneBox.addEventListener('change', () => {
+			settings.showDone = doneBox.checked;
+			this.saveAndRefresh();
+		});
+
+		const sort = filterBar.createEl('select', { cls: 'dropdown' });
+		sort.createEl('option', { value: 'newest', text: 'Newest first' });
+		sort.createEl('option', { value: 'oldest', text: 'Oldest first' });
+		sort.value = settings.defaultSort;
+		sort.addEventListener('change', () => {
+			settings.defaultSort = sort.value as SortOrder;
+			this.saveAndRefresh();
+		});
+
+		// Stored as one comma separated string, so older settings still load
+		const initial = settings.folderFilter.split(',').map((v) => v.trim()).filter(Boolean);
+		createChipInput(filterBar, initial, 'Filter by folder or #tag, then enter', (values) => {
+			settings.folderFilter = values.join(', ');
+			this.saveAndRefresh();
+		});
+
 		const bar = root.createDiv({ cls: 'syncdev-tabs' });
 		for (const { id, label, icon } of TABS) {
 			const el = bar.createDiv({ cls: 'syncdev-tab' });
@@ -79,6 +109,12 @@ export class SyncDevView extends ItemView {
 		this.showTab(this.tab, true);
 	}
 
+	/** Filter controls are remembered; saveData skips the index rebuild saveSettings does */
+	private saveAndRefresh(): void {
+		void this.plugin.saveData(this.plugin.settings);
+		this.panel?.refresh();
+	}
+
 	/** Swaps the panel; panels are rebuilt on every switch to keep them simple */
 	showTab(tab: SyncDevTab, force = false): void {
 		if (!this.panelEl || (tab === this.tab && !force)) {
@@ -93,7 +129,7 @@ export class SyncDevView extends ItemView {
 		this.panel = this.addChild(this.createPanel(tab));
 	}
 
-	private createPanel(tab: SyncDevTab): Component {
+	private createPanel(tab: SyncDevTab): KanbanPanel | CalendarPanel {
 		switch (tab) {
 			case 'kanban':
 				return new KanbanPanel(this.plugin, this.panelEl);

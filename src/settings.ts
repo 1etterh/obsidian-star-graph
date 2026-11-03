@@ -65,29 +65,6 @@ export class SyncDevSettingTab extends PluginSettingTab {
 					}),
 			);
 
-		new Setting(containerEl)
-			.setName('Default sort')
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption('newest', 'Newest first')
-					.addOption('oldest', 'Oldest first')
-					.setValue(settings.defaultSort)
-					.onChange(async (value) => {
-						settings.defaultSort = value as SortOrder;
-						await this.plugin.saveSettings();
-					}),
-			);
-
-		new Setting(containerEl)
-			.setName('Show done column')
-			.setDesc('Also toggled from the backlog toolbar.')
-			.addToggle((toggle) =>
-				toggle.setValue(settings.showDone).onChange(async (value) => {
-					settings.showDone = value;
-					await this.plugin.saveSettings();
-				}),
-			);
-
 		new Setting(containerEl).setName('Daily notes').setHeading();
 
 		new Setting(containerEl)

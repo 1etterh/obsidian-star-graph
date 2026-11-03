@@ -1,10 +1,9 @@
-import { Component, moment } from 'obsidian';
+import { Component } from 'obsidian';
 import { BoardColumn, columnOf, COLUMN_LABELS } from '../core/board';
-import { DATE_FORMAT } from '../core/dailyNotes';
+import { filterTasks } from '../core/scope';
 import { createdKey, sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
-import type { SortOrder, Task } from '../types';
-import { createChipInput } from './chipInput';
+import type { Task } from '../types';
 import { createTaskComposer } from './taskComposer';
 import { openTask, renderTaskRow, TaskRowHandlers } from './taskRow';
 
@@ -18,35 +17,6 @@ function sortDone(tasks: Task[]): Task[] {
 	return sortTasks(tasks, 'newest').sort((a, b) => key(b).localeCompare(key(a)));
 }
 
-interface ScopeFilter {
-	folders: string[];
-	tags: string[];
-}
-
-/** `projects, #syncdev` → folder `projects`, tag `syncdev`; any match counts */
-function parseScopeFilter(value: string): ScopeFilter {
-	const filter: ScopeFilter = { folders: [], tags: [] };
-	for (const part of value.split(',').map((s) => s.trim())) {
-		if (part.startsWith('#')) {
-			const tag = part.slice(1).replace(/\/+$/, '').toLowerCase();
-			if (tag) filter.tags.push(tag);
-		} else {
-			const folder = part.replace(/^\/+|\/+$/g, '');
-			if (folder) filter.folders.push(folder);
-		}
-	}
-	return filter;
-}
-
-/** A folder covers its subfolders and a tag its nested tags (#work → #work/syncdev) */
-function matchesScope(task: Task, filter: ScopeFilter): boolean {
-	if (filter.folders.length === 0 && filter.tags.length === 0) return true;
-	return (
-		filter.folders.some((f) => task.path.startsWith(`${f}/`)) ||
-		filter.tags.some((f) => task.tags.some((t) => t === f || t.startsWith(`${f}/`)))
-	);
-}
-
 interface ColumnEls {
 	column: HTMLElement;
 	count: HTMLElement;
@@ -58,8 +28,6 @@ export class KanbanPanel extends Component {
 	private boardEl!: HTMLElement;
 	/** Columns are built once; renders only swap their lists, so the add input survives */
 	private columns = new Map<BoardColumn, ColumnEls>();
-	private sort: SortOrder;
-	private includeDated = false;
 	private renderToken = 0;
 	/** Owns the markdown children of the current board, replaced on each render */
 	private boardComponent: Component | null = null;
@@ -70,12 +38,10 @@ export class KanbanPanel extends Component {
 		private containerEl: HTMLElement,
 	) {
 		super();
-		this.sort = plugin.settings.defaultSort;
 	}
 
 	onload(): void {
 		const root = this.containerEl.createDiv({ cls: 'syncdev-kanban' });
-		this.renderToolbar(root);
 		this.boardEl = root.createDiv({ cls: 'syncdev-board' });
 		for (const status of COLUMNS) this.createColumn(status);
 
@@ -85,69 +51,21 @@ export class KanbanPanel extends Component {
 		void this.renderBoard();
 	}
 
-	private renderToolbar(root: HTMLElement): void {
-		const bar = root.createDiv({ cls: 'syncdev-toolbar' });
-
-		this.renderToggle(bar, 'Dated', this.includeDated, (checked) => {
-			this.includeDated = checked;
-		});
-		// Remembered across sessions, unlike the other toolbar controls
-		const { settings } = this.plugin;
-		this.renderToggle(bar, 'Done', settings.showDone, (checked) => {
-			settings.showDone = checked;
-			void this.plugin.saveData(settings);
-		});
-
-		const select = bar.createEl('select', { cls: 'dropdown' });
-		select.createEl('option', { value: 'newest', text: 'Newest first' });
-		select.createEl('option', { value: 'oldest', text: 'Oldest first' });
-		select.value = this.sort;
-		select.addEventListener('change', () => {
-			this.sort = select.value as SortOrder;
-			void this.renderBoard();
-		});
-
-		// Stored as one comma separated string, so older settings still load
-		const initial = settings.folderFilter.split(',').map((v) => v.trim()).filter(Boolean);
-		createChipInput(bar, initial, 'Folder or #tag, then enter', (values) => {
-			settings.folderFilter = values.join(', ');
-			void this.plugin.saveData(settings);
-			void this.renderBoard();
-		});
-	}
-
-	private renderToggle(
-		bar: HTMLElement,
-		label: string,
-		value: boolean,
-		onChange: (checked: boolean) => void,
-	): void {
-		const el = bar.createEl('label', { cls: 'syncdev-toggle' });
-		const checkbox = el.createEl('input', { type: 'checkbox' });
-		checkbox.checked = value;
-		el.appendText(label);
-		checkbox.addEventListener('change', () => {
-			onChange(checkbox.checked);
-			void this.renderBoard();
-		});
-	}
-
 	private groupTasks(): Record<BoardColumn, Task[]> {
-		const today = moment().format(DATE_FORMAT);
 		const groups: Record<BoardColumn, Task[]> = { todo: [], done: [] };
-		const scope = parseScopeFilter(this.plugin.settings.folderFilter);
-		for (const task of this.plugin.index.all()) {
-			if (!matchesScope(task, scope)) continue;
-			const column = columnOf(task);
-			// The Dated filter keeps future work out of Todo; tasks due or scheduled by today stay
-			const date = task.scheduled ?? task.due;
-			if (column === 'todo' && !this.includeDated && date && date > today) continue;
-			groups[column].push(task);
+		const { settings } = this.plugin;
+		for (const task of filterTasks(this.plugin.index.all(), settings.folderFilter)) {
+			groups[columnOf(task)].push(task);
 		}
 		return {
-			todo: sortTasks(groups.todo, this.sort),
+			todo: sortTasks(groups.todo, settings.defaultSort),
 			done: sortDone(groups.done),
 		};
+	}
+
+	/** Called by the view when the shared filter changes */
+	refresh(): void {
+		void this.renderBoard();
 	}
 
 	private async renderBoard(): Promise<void> {

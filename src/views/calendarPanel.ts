@@ -1,5 +1,6 @@
 import { Component, moment, setIcon } from 'obsidian';
 import { DATE_FORMAT, getDailyNoteConfig, getOrCreateDailyNote } from '../core/dailyNotes';
+import { filterTasks } from '../core/scope';
 import { sortTasks } from '../core/sort';
 import type SyncDevPlugin from '../main';
 import type { Task } from '../types';
@@ -81,7 +82,9 @@ export class CalendarPanel extends Component {
 
 	private groupByDate(): Map<string, Task[]> {
 		const groups = new Map<string, Task[]>();
-		for (const task of this.plugin.index.all()) {
+		const { settings } = this.plugin;
+		for (const task of filterTasks(this.plugin.index.all(), settings.folderFilter)) {
+			if (!settings.showDone && task.status === 'done') continue;
 			const date = calendarDate(task);
 			if (!date) continue;
 			const list = groups.get(date) ?? [];
@@ -89,6 +92,11 @@ export class CalendarPanel extends Component {
 			groups.set(date, list);
 		}
 		return groups;
+	}
+
+	/** Called by the view when the shared filter changes */
+	refresh(): void {
+		void this.render();
 	}
 
 	private async render(): Promise<void> {
@@ -170,7 +178,7 @@ export class CalendarPanel extends Component {
 		const component = this.addChild(new Component());
 
 		// Open tasks first, then done
-		const sorted = sortTasks(tasks, 'oldest').sort(
+		const sorted = sortTasks(tasks, this.plugin.settings.defaultSort).sort(
 			(a, b) => Number(a.status === 'done') - Number(b.status === 'done'),
 		);
 		const list = createDiv({ cls: 'syncdev-list' });
