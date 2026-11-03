@@ -65,8 +65,9 @@ export class SyncDevView extends ItemView {
 		root.addClass('syncdev-view');
 
 		const bar = root.createDiv({ cls: 'syncdev-tabs' });
+		const tabList = bar.createDiv({ cls: 'syncdev-tab-list' });
 		for (const { id, label, icon } of TABS) {
-			const el = bar.createDiv({ cls: 'syncdev-tab' });
+			const el = tabList.createDiv({ cls: 'syncdev-tab' });
 			setIcon(el.createSpan({ cls: 'syncdev-tab-icon' }), icon);
 			el.createSpan({ text: label });
 			el.addEventListener('click', () => {
@@ -105,9 +106,29 @@ export class SyncDevView extends ItemView {
 			settings.folderFilter = values.join(', ');
 			this.saveAndRefresh();
 		});
+		this.watchWidth(bar, tabList, filterBar);
 		this.panelEl = root.createDiv({ cls: 'syncdev-panel' });
 
 		this.showTab(this.tab, true);
+	}
+
+	/**
+	 * Tabs and filter share a row until they would overlap, then the filter moves to
+	 * a second row. Measured from the parts' own widths, since stacking changes the row.
+	 */
+	private watchWidth(bar: HTMLElement, tabList: HTMLElement, filterBar: HTMLElement): void {
+		const gap = 16;
+		const observer = new ResizeObserver(([entry]) => {
+			if (!entry) return;
+			const tabs = Array.from(tabList.querySelectorAll<HTMLElement>('.syncdev-tab')).reduce(
+				(w, el) => w + el.offsetWidth,
+				0,
+			);
+			const needed = tabs + filterBar.offsetWidth + gap;
+			bar.toggleClass('is-stacked', needed > entry.contentRect.width);
+		});
+		observer.observe(bar);
+		this.register(() => observer.disconnect());
 	}
 
 	/** Filter controls are remembered; saveData skips the index rebuild saveSettings does */

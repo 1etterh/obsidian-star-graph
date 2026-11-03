@@ -22,12 +22,28 @@
 
 .syncdev-tabs {
 	display: flex;
+	flex-wrap: wrap;
 	flex-shrink: 0;
 	/* Tabs sit on the bottom border so the active underline meets it */
 	align-items: flex-end;
 	gap: var(--size-4-1);
 	padding: var(--size-4-2) var(--size-4-4) 0;
 	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.syncdev-tab-list {
+	display: flex;
+	gap: var(--size-4-1);
+}
+
+/* Too narrow for one row: tabs on top with their own line, filter below */
+.syncdev-tabs.is-stacked .syncdev-tab-list {
+	flex-basis: 100%;
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.syncdev-tabs.is-stacked .syncdev-filter {
+	padding-top: var(--size-4-2);
 }
 
 .syncdev-tab {

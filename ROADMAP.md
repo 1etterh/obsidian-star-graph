@@ -149,6 +149,7 @@
 - 필터 위치: Kanban 툴바 → 탭 바 위(`syncdevView`)로 옮겨 Kanban·Calendar가 같은 필터를 씀(`core/scope.ts`). Calendar는 칸 배지와 그날 목록 모두 필터 적용
 - Kanban 툴바 제거: Done 토글·정렬도 필터 줄로 옮겨 두 탭이 함께 씀. Calendar는 Done을 끄면 완료 task를 숨기고, 그날 목록은 미완료 먼저 + 선택한 정렬. 둘 다 기억(`showDone`, `defaultSort`)하고, 설정 탭의 같은 항목은 제거
 - Dated 토글 제거(예정일·마감일이 오늘 이후인 task를 Todo에서 숨기던 기능, 쓰임이 불분명해서)
+- 필터 컨트롤은 탭과 한 줄(오른쪽 끝). 폭이 좁아 겹치면 두 줄로: 위 탭(자체 밑줄), 아래 필터. `ResizeObserver`로 탭·필터 실제 너비 합과 탭 바 너비를 비교해 `is-stacked` 클래스 전환
 
 ## 남은 이슈 / 메모
 
