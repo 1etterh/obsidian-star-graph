@@ -12,6 +12,15 @@ export function createdKey(task: Task): string {
 }
 
 export function sortTasks(tasks: Task[], order: SortOrder): Task[] {
+	if (order === 'az' || order === 'za') {
+		const dir = order === 'az' ? 1 : -1;
+		return [...tasks].sort(
+			(a, b) =>
+				a.text.localeCompare(b.text, undefined, { numeric: true, sensitivity: 'base' }) * dir ||
+				// Same text: newest first
+				createdKey(b).localeCompare(createdKey(a)),
+		);
+	}
 	const dir = order === 'newest' ? -1 : 1;
 	return [...tasks].sort((a, b) => {
 		const byDate = createdKey(a).localeCompare(createdKey(b));

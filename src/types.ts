@@ -1,4 +1,4 @@
-export type SortOrder = 'newest' | 'oldest';
+export type SortOrder = 'newest' | 'oldest' | 'az' | 'za';
 
 /** Checkbox state; plain markdown has only these two */
 export type TaskStatus = 'todo' | 'done';

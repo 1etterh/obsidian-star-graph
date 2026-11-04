@@ -94,6 +94,8 @@ export class SyncDevView extends ItemView {
 		const sort = filterBar.createEl('select', { cls: 'dropdown' });
 		sort.createEl('option', { value: 'newest', text: 'Newest first' });
 		sort.createEl('option', { value: 'oldest', text: 'Oldest first' });
+		sort.createEl('option', { value: 'az', text: 'Alphabetical' });
+		sort.createEl('option', { value: 'za', text: 'Reverse alphabetical' });
 		sort.value = settings.defaultSort;
 		sort.addEventListener('change', () => {
 			settings.defaultSort = sort.value as SortOrder;

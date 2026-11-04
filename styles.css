@@ -10,7 +10,8 @@
 	align-items: center;
 	gap: var(--size-4-2);
 	margin-left: auto;
-	padding-bottom: var(--size-4-2);
+	/* Same vertical padding as a tab (plus its 2px underline), so both centre alike */
+	padding: var(--size-4-1) 0 calc(var(--size-4-1) + 2px);
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
 }
@@ -24,8 +25,9 @@
 	display: flex;
 	flex-wrap: wrap;
 	flex-shrink: 0;
-	/* Tabs sit on the bottom border so the active underline meets it */
-	align-items: flex-end;
+	/* Tabs stretch to the row height, so their underline stays on the bottom border
+	   while the labels line up with the filter controls */
+	align-items: stretch;
 	gap: var(--size-4-1);
 	padding: var(--size-4-2) var(--size-4-4) 0;
 	border-bottom: 1px solid var(--background-modifier-border);
@@ -43,7 +45,7 @@
 }
 
 .syncdev-tabs.is-stacked .syncdev-filter {
-	padding-top: var(--size-4-2);
+	padding: var(--size-4-2) 0;
 }
 
 .syncdev-tab {
@@ -51,7 +53,7 @@
 	align-items: center;
 	gap: var(--size-4-1);
 	margin-bottom: -1px;
-	padding: var(--size-4-1) var(--size-4-3) var(--size-4-2);
+	padding: var(--size-4-1) var(--size-4-3);
 	border-bottom: 2px solid transparent;
 	font-size: var(--font-ui-small);
 	color: var(--text-muted);
